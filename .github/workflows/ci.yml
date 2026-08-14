@@ -43,7 +43,15 @@ jobs:
       - name: Report required-file diagnostics
         if: ${{ failure() }}
         shell: bash
-        run: python -c 'exec("from tools.check_project import check_required_files\\ntry:\\n    check_required_files()\\nexcept Exception as exc:\\n    print(f\\"::error title=Required-file check::{exc}\\")")'
+        run: |
+          python - <<'PY'
+          from tools.check_project import check_required_files
+
+          try:
+              check_required_files()
+          except Exception as exc:
+              print(f"::error title=Required-file check::{exc}")
+          PY
 
       - name: Check version metadata
         run: python -c "from tools.check_project import check_version; print(check_version())"
