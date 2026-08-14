@@ -19,6 +19,11 @@ const statMine = $('#statMine'), statBg = $('#statBg'), statTime = $('#statTime'
 const statCpu = $('#statCpu'), statMem = $('#statMem'), statWarn = $('#statWarn');
 const portDiscovery = $('#portDiscovery'), portDiscoveryList = $('#portDiscoveryList');
 const portDiscoveryCount = $('#portDiscoveryCount'), portDiscoveryIcon = $('#portDiscoveryIcon');
+const bulkImportPanel = $('#bulkImportPanel'), bulkImportList = $('#bulkImportList');
+const bulkImportOpen = $('#bulkImportOpen'), bulkImportOpenIcon = $('#bulkImportOpenIcon');
+const bulkImportCount = $('#bulkImportCount'), bulkImportSelection = $('#bulkImportSelection');
+const bulkImportSelectAll = $('#bulkImportSelectAll'), bulkImportCancel = $('#bulkImportCancel');
+const bulkImportSubmit = $('#bulkImportSubmit'), bulkImportStatus = $('#bulkImportStatus');
 let serviceCommandId = 0;
 
 function findSvc(key) {
@@ -545,6 +550,149 @@ let mineFilter = 'all';
 /* 芯片按钮只创建一次，点击时必须读取当轮数据而不是首次渲染的闭包快照 */
 let latestMine = [];
 
+/* ---------------- 批量导入现有服务 ----------------
+   端口扫描结果来自同一份 /api/state 快照；提交时后端会重新扫描并核验，
+   因此页面上的勾选只是候选，不构成对进程的直接授权。 */
+let bulkImportCandidates = [];
+let bulkImportSelected = new Set();
+let bulkImportOpenState = false;
+let bulkImportBusy = false;
+
+setChildren(bulkImportOpenIcon, icon('search', 14));
+
+function importableServices(data) {
+  return (data && Array.isArray(data.services) ? data.services : [])
+    .filter(svc => svc && svc.group === 'mine' && !svc.hidden && !svc.appId
+      && Number.isInteger(Number(svc.pid)) && Number(svc.pid) > 0
+      && Number.isInteger(Number(svc.port)) && Number(svc.port) > 0)
+    .sort(svcSort);
+}
+
+function bulkImportKey(svc) {
+  return serviceKey(svc);
+}
+
+function bulkImportSelectedItems() {
+  return bulkImportCandidates.filter(svc =>
+    bulkImportSelected.has(bulkImportKey(svc)));
+}
+
+function syncBulkImportControls() {
+  const total = bulkImportCandidates.length;
+  const selected = bulkImportSelectedItems().length;
+  setText(bulkImportCount, String(total));
+  setText(bulkImportSelection, selected ? `已选择 ${selected} 项` : '未选择');
+  bulkImportSelectAll.checked = total > 0 && selected === total;
+  bulkImportSelectAll.indeterminate = selected > 0 && selected < total;
+  bulkImportSubmit.disabled = bulkImportBusy || selected === 0;
+  bulkImportCancel.disabled = bulkImportBusy;
+}
+
+function createBulkImportRow() {
+  const row = el('article', 'bulk-import-item');
+  row.setAttribute('role', 'listitem');
+  const check = el('input');
+  check.type = 'checkbox';
+  check.className = 'bulk-import-check';
+  check.addEventListener('change', () => {
+    const key = row.dataset.key;
+    if (check.checked) bulkImportSelected.add(key);
+    else bulkImportSelected.delete(key);
+    syncBulkImportControls();
+  });
+  const copy = el('div', 'bulk-import-copy');
+  const title = el('strong', 'bulk-import-name');
+  const meta = el('div', 'bulk-import-meta');
+  const detail = el('div', 'bulk-import-detail');
+  copy.append(title, meta, detail);
+  row.append(check, copy);
+  row._r = { check, title, meta, detail };
+  return row;
+}
+
+function updateBulkImportRow(row, svc) {
+  const r = row._r;
+  const key = bulkImportKey(svc);
+  const title = svc.project || svc.name || '本地服务';
+  setText(r.title, title);
+  setText(r.meta, (svc.name || '未知进程') + ' · PID ' + svc.pid + ' · :' + svc.port);
+  const detail = svc.cwd || svc.cmd || '工作目录暂不可读，提交时会跳过';
+  setText(r.detail, truncateMiddle(shortHome(detail), 96));
+  r.detail.title = detail;
+  r.check.checked = bulkImportSelected.has(key);
+  r.check.disabled = bulkImportBusy;
+  r.check.setAttribute('aria-label', '选择 ' + title + ' :' + svc.port);
+}
+
+function renderBulkImport() {
+  bulkImportPanel.hidden = !bulkImportOpenState;
+  if (!bulkImportOpenState) return;
+  reconcile(bulkImportList, bulkImportCandidates, bulkImportKey,
+    createBulkImportRow, updateBulkImportRow, true);
+  syncBulkImportControls();
+}
+
+async function openBulkImportPanel() {
+  if (bulkImportBusy) return;
+  await window.__poll();
+  const candidates = importableServices(state.data);
+  if (!candidates.length) {
+    bulkImportOpenState = false;
+    renderBulkImport();
+    toast('当前没有发现尚未加入启动台的本地服务');
+    return;
+  }
+  bulkImportCandidates = candidates;
+  bulkImportSelected = new Set(candidates.map(bulkImportKey));
+  bulkImportOpenState = true;
+  setText(bulkImportStatus, '导入后服务会保留原进程，启动台只接管后续的停止、重启和日志入口。');
+  renderBulkImport();
+  bulkImportPanel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function closeBulkImportPanel() {
+  if (bulkImportBusy) return;
+  bulkImportOpenState = false;
+  bulkImportCandidates = [];
+  bulkImportSelected.clear();
+  setText(bulkImportStatus, '');
+  renderBulkImport();
+}
+
+async function submitBulkImport() {
+  const selected = bulkImportSelectedItems();
+  if (!selected.length || bulkImportBusy) return;
+  bulkImportBusy = true;
+  setText(bulkImportStatus, '正在重新核验服务并导入…');
+  syncBulkImportControls();
+  const result = await act(post('/api/apps/bulk-attach', {
+    items: selected.map(svc => ({ pid: Number(svc.pid), port: Number(svc.port) })),
+  }));
+  bulkImportBusy = false;
+  if (!result || result.ok === false) {
+    setText(bulkImportStatus, '导入没有完成，请刷新后重试。');
+    syncBulkImportControls();
+    return;
+  }
+  const created = Number(result.createdCount || 0);
+  const skipped = Number(result.skippedCount || 0);
+  closeBulkImportPanel();
+  await window.__poll();
+  toast(`已导入 ${created} 个服务${skipped ? `，跳过 ${skipped} 个已失效或重复项目` : ''}`);
+}
+
+bulkImportOpen.addEventListener('click', openBulkImportPanel);
+bulkImportCancel.addEventListener('click', closeBulkImportPanel);
+bulkImportSelectAll.addEventListener('change', () => {
+  if (bulkImportSelectAll.checked) {
+    bulkImportCandidates.forEach(svc => bulkImportSelected.add(bulkImportKey(svc)));
+  } else {
+    bulkImportSelected.clear();
+  }
+  renderBulkImport();
+});
+bulkImportSubmit.addEventListener('click', submitBulkImport);
+
 function matchMineFilter(svc, filter) {
   if (filter === 'linked') return !!svc.appId;
   if (filter === 'pinned') return !!svc.pinned;
@@ -633,6 +781,17 @@ export function renderServices(d, firstRender) {
   reconcile(watchChips, keywords, k => k, createChip, () => {}, firstRender);
   latestMine = mine;
   syncMineFilterUI();
+  if (bulkImportOpenState) {
+    const current = importableServices(d);
+    const currentKeys = new Set(current.map(bulkImportKey));
+    bulkImportCandidates = bulkImportCandidates
+      .map(item => current.find(svc => bulkImportKey(svc) === bulkImportKey(item)))
+      .filter(Boolean);
+    for (const key of [...bulkImportSelected]) {
+      if (!currentKeys.has(key)) bulkImportSelected.delete(key);
+    }
+    renderBulkImport();
+  }
 
   setText($('#mineSecCount'), mine.length ? String(mine.length) : '');
   setText(bgCount, String(bg.length));

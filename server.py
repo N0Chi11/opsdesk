@@ -112,6 +112,7 @@ PORT_TRIES = 10
 SUBPROCESS_TIMEOUT = 5          # lsof/ps 等子进程超时（秒）
 MAX_ICON_BYTES = 5 * 1024 * 1024
 MAX_JSON_BYTES = 1 * 1024 * 1024
+MAX_BULK_IMPORT_ITEMS = 128
 MAX_DETECT_FILE_BYTES = 2 * 1024 * 1024
 MAX_LOG_BYTES = 10 * 1024 * 1024
 LOG_BACKUPS = 3
@@ -4132,6 +4133,9 @@ class Handler(BaseHTTPRequestHandler):
             if path == "/api/apps":
                 self.handle_app_create()
                 return
+            if path == "/api/apps/bulk-attach":
+                self.handle_apps_bulk_attach()
+                return
             if path == "/api/apps/reorder":
                 self.handle_apps_reorder()
                 return
@@ -4407,6 +4411,181 @@ class Handler(BaseHTTPRequestHandler):
                 "cwdUpdated": cwd_updated,
             })
         self.send_json(created)
+
+    def handle_apps_bulk_attach(self):
+        """批量把当前用户正在运行的本地服务认领到启动台。
+
+        客户端只提交 PID/端口作为候选提示；这里重新扫描监听器、进程归属和
+        工作目录，并在一次配置写入中保存所有仍然有效的卡片。这样页面快照
+        过期、进程刚退出或同一 PID 被其他卡片认领时，都只会得到可解释的跳过
+        结果，不会产生半成品卡片。
+        """
+        data, err = self.read_json_body()
+        if err:
+            self.send_err(400, err)
+            return
+        items = data.get("items")
+        if (not isinstance(items, list) or not items
+                or len(items) > MAX_BULK_IMPORT_ITEMS):
+            self.send_err(
+                400, "items 必须是 1-%d 项的数组" % MAX_BULK_IMPORT_ITEMS)
+            return
+
+        requested = []
+        seen = set()
+        for item in items:
+            if not isinstance(item, dict):
+                self.send_err(400, "items 中的每一项必须是对象")
+                return
+            pid, port = item.get("pid"), item.get("port")
+            if (isinstance(pid, bool) or not isinstance(pid, int) or pid <= 0
+                    or isinstance(port, bool) or not isinstance(port, int)
+                    or not 1 <= port <= 65535):
+                self.send_err(400, "每一项都必须包含合法的 pid 和 port")
+                return
+            key = (pid, port)
+            if key not in seen:
+                seen.add(key)
+                requested.append(key)
+
+        cfg = self.server.cfg.snapshot()
+        try:
+            services, _ = build_services(cfg)
+        except Exception as exc:
+            LOG.exception("批量导入前扫描服务失败")
+            self.send_err(503, "无法完成服务扫描: %s" % exc)
+            return
+
+        service_by_key = {
+            (service.get("pid"), service.get("port")): service
+            for service in services
+            if service.get("group") == "mine"
+        }
+        existing_apps = cfg.get("apps") or []
+        reserved_pids = {
+            app.get("lastPid") for app in existing_apps
+            if isinstance(app.get("lastPid"), int)
+        }
+        prepared = []
+        skipped = []
+
+        def same_cwd(left, right):
+            if not isinstance(left, str) or not left:
+                return False
+            if not isinstance(right, str) or not right:
+                return False
+            try:
+                return os.path.realpath(left) == os.path.realpath(right)
+            except OSError:
+                return False
+
+        def skip(pid, port, reason):
+            skipped.append({"pid": pid, "port": port, "reason": reason})
+
+        for pid, port in requested:
+            service = service_by_key.get((pid, port))
+            if not service:
+                skip(pid, port, "服务已停止或不属于当前用户")
+                continue
+            if service.get("appId"):
+                skip(pid, port, "已经由启动台管理")
+                continue
+            if pid in reserved_pids:
+                skip(pid, port, "该进程已经由其他卡片管理")
+                continue
+            cwd = service.get("cwd")
+            command = (service.get("cmd") or service.get("name") or "").strip()
+            if not cwd:
+                skip(pid, port, "无法读取工作目录")
+                continue
+            if not command:
+                skip(pid, port, "无法读取启动命令")
+                continue
+            if any(app.get("port") == port and
+                   same_cwd(app.get("cwd"), cwd) for app in existing_apps):
+                skip(pid, port, "相同项目和端口已经存在卡片")
+                continue
+
+            base_name = (service.get("project") or service.get("name") or
+                         "本地服务").strip()
+            fields, field_error = validate_app_fields({
+                "name": base_name,
+                "command": command,
+                "cwd": cwd,
+                "port": port,
+                "kind": "service",
+            }, partial=False)
+            if field_error:
+                skip(pid, port, field_error)
+                continue
+
+            provisional = {
+                "id": None, **fields, "lastPid": None,
+                "lastPgid": None, "runToken": None, "attached": False,
+            }
+            ok, attach_error, identity = inspect_attach_process(
+                self.server.cfg, provisional, pid)
+            if not ok:
+                skip(pid, port, attach_error or "进程已无法认领")
+                continue
+
+            app_id = secrets.token_hex(4)
+            while (app_id in {app.get("id") for app in existing_apps}
+                   or any(entry["app"].get("id") == app_id
+                          for entry in prepared)):
+                app_id = secrets.token_hex(4)
+            actual_cwd = identity.get("cwd") or cwd
+            app = {
+                "id": app_id, "name": fields["name"],
+                "command": fields["command"], "cwd": actual_cwd,
+                "port": fields["port"], "emoji": fields["emoji"],
+                "glyph": fields["glyph"], "kind": fields["kind"],
+                "icon": None, "favicon": None, "lastPid": pid,
+                "lastPgid": None, "runToken": None, "attached": True,
+                "lastExit": None, "createdAt": int(time.time()),
+            }
+            prepared.append({"pid": pid, "port": port, "app": app})
+            reserved_pids.add(pid)
+
+        created = []
+
+        if not prepared:
+            self.send_json({
+                "ok": True,
+                "created": [],
+                "skipped": skipped,
+                "createdCount": 0,
+                "skippedCount": len(skipped),
+            })
+            return
+
+        def op(c):
+            current_apps = c.setdefault("apps", [])
+            live_pids = {
+                app.get("lastPid") for app in current_apps
+                if isinstance(app.get("lastPid"), int)
+            }
+            for entry in prepared:
+                app = entry["app"]
+                if app["lastPid"] in live_pids:
+                    skip(entry["pid"], entry["port"], "该进程已被其他卡片认领")
+                    continue
+                current_apps.append(app)
+                live_pids.add(app["lastPid"])
+                created.append({
+                    "id": app["id"], "name": app["name"],
+                    "port": app["port"], "pid": app["lastPid"],
+                    "cwd": app["cwd"],
+                })
+
+        self.server.cfg.update(op)
+        self.send_json({
+            "ok": True,
+            "created": created,
+            "skipped": skipped,
+            "createdCount": len(created),
+            "skippedCount": len(skipped),
+        })
 
     @serialized_app_operation
     def handle_fetch_favicon(self, app_id):

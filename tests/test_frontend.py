@@ -249,6 +249,18 @@ class FrontendAccessibilityContractTests(unittest.TestCase):
         self.assertIn("observePortDiscovery(data)", app)
         self.assertIn("suspendPortDiscovery()", app)
 
+    def test_bulk_service_import_has_selection_ui_and_backend_contract(self):
+        html = (ROOT / "static/index.html").read_text(encoding="utf-8")
+        services = (ROOT / "static/js/services.js").read_text(encoding="utf-8")
+        for element_id in (
+                "bulkImportPanel", "bulkImportList", "bulkImportSelectAll",
+                "bulkImportSubmit", "bulkImportOpen"):
+            self.assertIn('id="%s"' % element_id, html)
+        self.assertIn("function importableServices(data)", services)
+        self.assertIn("/api/apps/bulk-attach", services)
+        self.assertIn("items: selected.map", services)
+        self.assertIn("bulkImportSelectAll.indeterminate", services)
+
     def test_port_conflict_dialog_offers_non_destructive_resolution(self):
         html = (ROOT / "static/index.html").read_text(encoding="utf-8")
         launchpad = (ROOT / "static/js/launchpad.js").read_text(encoding="utf-8")

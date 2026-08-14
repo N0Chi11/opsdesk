@@ -75,6 +75,7 @@
 
 ### 启动台应用
 - `POST /api/apps` `{name, command, cwd?, port?, emoji?, glyph?, kind?, attachPid?}` → app 对象（`kind` 缺省 `service`；`task` 强制 port=null；服务监控来源可带 `attachPid`，后端先校验 PID/端口/UID/cwd，再将卡片与运行身份一次写入，失败不创建半成品卡片）
+- `POST /api/apps/bulk-attach` `{items:[{pid,port}, ...]}` → `{ok, created:[...], skipped:[...], createdCount, skippedCount}`（最多 128 项；客户端只提交扫描候选，后端重新扫描并校验当前用户、监听端口、真实 cwd 和现有卡片归属；一次配置写入，失效/重复项单独跳过）
 - `POST /api/pick` `{what: "dir"|"script"}` → `{ok, path}` / `{ok, canceled:true}`（macOS 用 osascript、Windows 用 PowerShell + WinForms 弹系统原生目录/文件选择框；取消不是错误）
 - `POST /api/project/detect` `{cwd}` → `{ok, cwd, name, files, candidates:[{command,label,source,port,kind,detail}]}`（只读分析项目根目录，不执行项目代码；识别 package.json scripts 与包管理器锁文件、Hexo/Hugo/Jekyll、Django/FastAPI/Flask/Streamlit、Docker Compose、Go、Rust、常用启动脚本及纯静态站点。Hexo 无 scripts 时仍返回 `hexo s` 服务与 `hexo cl` 任务）
 - `POST /api/apps/reorder` `{ids: [...]}` → `{ok}`（按 ids 重排 apps 数组；Python sort 稳定，未涉及的 id 相对顺序不变，服务/任务两区可独立拖拽排序互不干扰）
@@ -138,6 +139,7 @@
 - 批处理运行中显示实时耗时和「中止」入口；结束后明确显示成功/取消/失败/中止、距今时间与耗时。失败时突出日志入口；首次加载已有历史不重复提醒
 - 停止状态下配置健康有阻断问题时，卡片显示第一项原因、禁用运行/启动并开放「配置与运行诊断」；运行中的停止/中止入口不得被健康问题禁用
 - 服务监控只在当前页面会话连续轮询期间提醒新出现的、未管理的 mine 端口；首次加载、断线/后台/降级/重启恢复时静默建立基线。发现栏提供「加入启动台」「忽略并隐藏」「暂时关闭」
+- 服务监控提供「扫描现有服务」批量导入入口；默认勾选未管理的 mine 端口，提交前允许取消选择，后端返回每个失效/重复候选的跳过原因
 - 从服务监控或新端口发现点击「加入启动台」时，项目识别完成前不得保存；创建请求必须携带 `attachPid`，由后端原子完成卡片创建与来源 PID 认领，失败时不留下“已创建但未认领”的半成品卡片；成功后卡片直接显示运行中
 - DOM 按 key 原地更新，禁整列表重绘闪烁；fetch 失败显示断连横幅
 - 深浅色跟随系统 + 手动切换（localStorage `console-theme`）；**单一 UI 主题 Ops 指挥台**（ops.css：深空蓝黑/雾灰双色 + 柔和圆角细边 + 蓝色强调，配合布局 v2 的导航轨/KPI 图标卡/实时动态侧栏；`#themeCss` 整包加载机制保留）；字体 = macOS 系统字体栈 + Geist Mono（数据/代码）；顶栏品牌图标 = `static/assets/brand-mark.png`；UI 零 emoji

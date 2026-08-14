@@ -191,6 +191,77 @@ class AtomicAttachCreateTests(unittest.TestCase):
         self.assertEqual(self.h.cfg.snapshot()["apps"], [])
 
 
+class BulkAttachTests(unittest.TestCase):
+    def setUp(self):
+        self.h = HttpHarness()
+
+    def tearDown(self):
+        self.h.close()
+
+    def _bulk(self, items):
+        return self.h.request(
+            "POST", "/api/apps/bulk-attach",
+            json.dumps({"items": items}),
+            {"Content-Type": "application/json"},
+        )
+
+    def test_imports_multiple_fresh_current_user_services_in_one_write(self):
+        services = [
+            {"pid": 4101, "port": 3000, "group": "mine", "appId": None,
+             "project": "博客", "name": "node", "cmd": "npm run dev",
+             "cwd": "/projects/blog"},
+            {"pid": 4102, "port": 8000, "group": "mine", "appId": None,
+             "project": "接口", "name": "python", "cmd": "python app.py",
+             "cwd": "/projects/api"},
+        ]
+        with mock.patch.object(server, "build_services",
+                               return_value=(services, set())), \
+                mock.patch.object(
+                    server, "inspect_attach_process",
+                    side_effect=lambda cfg, app, pid:
+                    (True, None, {"status": 200, "cwd": app["cwd"]})):
+            status, body, _ = self._bulk([
+                {"pid": 4101, "port": 3000},
+                {"pid": 4102, "port": 8000},
+            ])
+
+        self.assertEqual(status, 200)
+        self.assertEqual(body["createdCount"], 2)
+        self.assertEqual(body["skippedCount"], 0)
+        apps = self.h.cfg.snapshot()["apps"]
+        self.assertEqual([app["lastPid"] for app in apps], [4101, 4102])
+        self.assertTrue(all(app["attached"] for app in apps))
+
+    def test_stale_and_duplicate_candidates_are_reported_without_partial_cards(self):
+        services = [{
+            "pid": 4201, "port": 3000, "group": "mine", "appId": None,
+            "project": "博客", "name": "node", "cmd": "npm run dev",
+            "cwd": "/projects/blog",
+        }]
+        with mock.patch.object(server, "build_services",
+                               return_value=(services, set())), \
+                mock.patch.object(
+                    server, "inspect_attach_process",
+                    side_effect=lambda cfg, app, pid:
+                    (True, None, {"status": 200, "cwd": app["cwd"]})):
+            status, body, _ = self._bulk([
+                {"pid": 4201, "port": 3000},
+                {"pid": 4299, "port": 9999},
+            ])
+
+        self.assertEqual(status, 200)
+        self.assertEqual(body["createdCount"], 1)
+        self.assertEqual(body["skippedCount"], 1)
+        self.assertEqual(body["skipped"][0]["reason"],
+                         "服务已停止或不属于当前用户")
+        self.assertEqual(len(self.h.cfg.snapshot()["apps"]), 1)
+
+    def test_bulk_import_requires_bounded_non_empty_items(self):
+        status, body, _ = self._bulk([])
+        self.assertEqual(status, 400)
+        self.assertFalse(body["ok"])
+
+
 class DeliveryMetadataTests(unittest.TestCase):
     def setUp(self):
         self.h = HttpHarness()

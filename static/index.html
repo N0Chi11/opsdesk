@@ -273,9 +273,32 @@
                    aria-live="polite" aria-relevant="additions removals"></div>
             </section>
 
+            <!-- 批量识别当前用户正在运行的本地服务 -->
+            <section class="bulk-import panel" id="bulkImportPanel" aria-labelledby="bulkImportTitle" hidden>
+              <div class="bulk-import-head">
+                <div>
+                  <h3 id="bulkImportTitle">识别到可管理的本地服务</h3>
+                  <p>勾选后一次性加入启动台。导入时会再次核验 PID、端口、用户和工作目录。</p>
+                </div>
+                <span class="bulk-import-count" id="bulkImportCount">0</span>
+              </div>
+              <div class="bulk-import-toolbar">
+                <label class="bulk-import-select-all">
+                  <input id="bulkImportSelectAll" type="checkbox">
+                  <span>全选</span>
+                </label>
+                <span class="bulk-import-selection" id="bulkImportSelection">未选择</span>
+                <i></i>
+                <button class="btn" id="bulkImportCancel" type="button">取消</button>
+                <button class="btn btn-accent" id="bulkImportSubmit" type="button">导入选中</button>
+              </div>
+              <div class="bulk-import-list" id="bulkImportList" role="list" aria-live="polite"></div>
+              <p class="bulk-import-status" id="bulkImportStatus" role="status" aria-live="polite"></p>
+            </section>
+
             <!-- 我的服务 -->
             <section class="panel">
-              <div class="sec-label"><span>Services · 我的服务</span><span class="sec-count" id="mineSecCount"></span><i></i><div class="filter-row" id="mineFilter" role="group" aria-label="筛选我的服务"></div></div>
+              <div class="sec-label"><span>Services · 我的服务</span><span class="sec-count" id="mineSecCount"></span><i></i><button class="btn bulk-import-trigger" id="bulkImportOpen" type="button"><span id="bulkImportOpenIcon" aria-hidden="true"></span>扫描现有服务</button><div class="filter-row" id="mineFilter" role="group" aria-label="筛选我的服务"></div></div>
               <div class="tbl" role="table" aria-label="我的服务">
                 <div class="tr th" role="row">
                   <span class="c-dot" role="columnheader"><span class="sr-only">状态</span></span><span class="c-title" role="columnheader">服务</span><span class="c-pid" role="columnheader">PID</span><span class="c-port" role="columnheader">端口</span><span class="c-cwd" role="columnheader">目录</span><span class="c-load" role="columnheader">负载</span><span class="c-up" role="columnheader">时长</span><span class="c-status" role="columnheader">状态</span><span class="c-act" role="columnheader">操作</span>
