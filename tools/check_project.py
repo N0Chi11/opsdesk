@@ -539,8 +539,9 @@ def expected_icons_js() -> str:
 def check_generated_icons() -> str:
     actual_path = STATIC / "icons.js"
     require(actual_path.is_file(), "static/icons.js 不存在")
-    expected = expected_icons_js()
-    actual = actual_path.read_text(encoding="utf-8")
+    expected = expected_icons_js().replace("\r\n", "\n").replace("\r", "\n")
+    actual = actual_path.read_text(encoding="utf-8").lstrip("\ufeff")
+    actual = actual.replace("\r\n", "\n").replace("\r", "\n")
     require(
         actual == expected,
         "static/icons.js 与 SVG 源文件不同步，请运行 make generate-icons",
