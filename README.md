@@ -1,0 +1,326 @@
+# OpsDesk（总控台）
+
+**Preview / Alpha · 源码预览**
+
+OpsDesk 是一个面向 Windows / macOS 的本地服务与批处理任务快速启动、运行监测工具。它把常用项目命令、长期服务和一次性批处理任务集中到本地网页中，并用 Python 3 标准库提供只绑定回环地址的后端；前端是无构建、无 CDN 的原生 HTML/CSS/JavaScript。
+
+> 当前版本仍处于 Preview / Alpha 阶段，以源码预览形式提供。接口、配置格式和安装方式仍可能调整；`总控台.app`（macOS）与 `总控台.vbs`（Windows）都是项目内启动器，不是可以单独复制的自包含应用。
+
+OpsDesk 只服务当前电脑和当前用户，不是远程运维、多人协作或公网管理面板。它能够以当前用户权限执行保存的 shell 命令；不要将监听地址、反向代理、SSH 隧道或端口映射暴露到不受信任的网络。
+
+## 来源与衍生关系
+
+本项目基于 [laogou717/local-ops](https://github.com/laogou717/local-ops) 衍生，保留上游 MIT License 和原作者版权声明，并在此基础上增加 Windows 支持、跨平台启动流程、进程与端口处理，以及 UI 适配和优化。完整来源与修改记录见 [`NOTICE.md`](NOTICE.md)。
+
+## 功能
+
+- 每 2 秒查看当前用户的本地监听服务、CPU、内存和运行时长。
+- 保存常用服务或批处理任务，集中启动、停止、重启、查日志和诊断。
+- 在当前页面会话中发现新出现的、尚未管理的监听端口，可直接加入启动台或忽略隐藏。
+- 运行前检查工作目录、脚本和运行时；明确失效时直接给出修复入口，不必先失败一次。
+- 从项目文件夹识别常用启动命令，但不安装依赖、不执行项目代码。
+- 通过运行 token、进程组和当前 UID 联合识别受控进程，不会因端口相同就杀死外部进程。
+- Ops 指挥台单一主题：深空蓝黑/雾灰双色，左侧导航轨、KPI 概览卡、实时动态侧栏，浅色、深色和跟随系统。
+- 全局命令面板可直接添加服务或批处理任务；启动台卡片支持鼠标拖拽和键盘排序。
+
+## 界面预览
+
+以下截图使用脱敏演示数据，不包含真实用户名、目录、命令或服务信息。
+
+| 启动台 | 服务监控 |
+| --- | --- |
+| ![Ops 指挥台 · 启动台](docs/screenshots/ops-launchpad.jpg) | ![Ops 指挥台 · 服务监控](docs/screenshots/ops-services.jpg) |
+
+## 系统要求
+
+- **Windows 10 / 11**（首选）或 macOS 12+。
+- Python 3.12。运行时仅使用 Python 标准库，外加 Windows 自带的 `netstat` 与 PowerShell（仅原生文件选择框/消息框使用）。
+- Windows 无需任何第三方工具；macOS 使用自带的 `ps`、`lsof`、`osascript`。
+- Chrome、Edge、Safari 或其他支持 ES Modules 的现代浏览器。
+
+`VERSION` 是项目版本的唯一权威来源。`Info.plist`、发行包名和发行说明应与它保持一致。
+
+## 安装
+
+总控台以完整项目目录运行，`总控台.vbs` / `start.bat`（Windows）与 `总控台.app`（macOS）都是项目内启动器，不是可以单独复制的自包含应用。
+
+### Windows
+
+1. **下载并解压**：将发行 zip 解压到一个你有读写权限的位置（如 `D:\Applications` 或文档下的固定目录）。解压后请保持目录结构完整，不要单独移动 `总控台.vbs` 或 `start.bat`。
+2. **确认 Python 3.12**：打开 PowerShell 或「命令提示符」运行：
+
+   ```powershell
+   python --version
+   ```
+
+   显示 3.12 或更高即可。未安装或版本过低时，到 <https://www.python.org/downloads/> 下载官方 Windows 安装包，安装向导中务必勾选 **Add python.exe to PATH**，按向导完成即可（之后不再需要操作）。
+3. **首次打开**：双击 `总控台.vbs` 后台运行，或双击 `start.bat` 在终端里查看实时输出。若系统提示“已阻止运行”，在文件属性 → 常规 → 安全中勾选“解除锁定”后重试（这是 Windows 对互联网下载文件的常规提示）。
+
+### macOS
+
+1. 将发行 zip 解压到固定目录，保持目录结构完整，不要单独移动 `总控台.app`。
+2. 确认 `python3 --version` 为 3.12+；未安装时从 python.org 下载官方 macOS 安装包。
+3. 首次打开：在 `总控台.app` 上**点右键 → 打开**，在弹窗中再点「打开」（或执行 `xattr -dr com.apple.quarantine "总控台.app"`）。这是 macOS 对互联网下载应用的常规隔离提示，不是程序损坏。
+
+## 运行
+
+启动总控台的方式，按平台选择：
+
+| 方式 | 操作 | 适用场景 |
+| --- | --- | --- |
+| Windows 无窗口 | 双击 `总控台.vbs` | 日常使用。后台运行，无控制台窗口 |
+| Windows 终端 | 双击 `start.bat` | 想在终端里看实时输出 |
+| Windows 命令行 | `python server.py` | 调试、脚本化或远程启动 |
+| macOS 应用 | 双击 `总控台.app` | 日常使用。后台运行，无 Terminal 窗口和 Dock 图标 |
+| macOS 脚本 | 双击 `start.command` | 想在 Terminal 里看实时输出 |
+
+命令行还有两个可选参数：
+
+```bash
+python server.py --no-browser        # 只启动服务，不自动打开浏览器
+python server.py --preferred-port 9603  # 在 9600-9609 内指定优先端口
+```
+
+启动后程序只绑定 `127.0.0.1`，从 9600 起尝试端口，被占用则递增（最多 10 个），并自动打开浏览器。命令行参数、环境变量（`CONSOLE_DATA_DIR` / `CONSOLE_LOG_DIR`）见下文“数据、隐私与备份”。
+
+**实际地址在哪里看**：顶栏「重启 :9600」按钮上直接显示当前端口；或看终端输出 / 日志目录里的 `console.log`（Windows：`%LOCALAPPDATA%\总控台\console.log`）。浏览器手动访问 `http://127.0.0.1:端口号/` 即可。
+
+**停止与重启**：顶栏「重启 / 停止」控制的是总控台自身（网页服务）。停止总控台**不会**停止启动台里已经运行的应用——它们是独立进程树，会继续运行；下次打开总控台时会自动重新识别。重启总控台会加载磁盘上的最新代码，同样不影响运行中的应用。
+
+## 使用
+
+打开页面后，左侧是导航轨，右侧是信息栏；所有数据每 2 秒自动刷新。
+
+### 启动台（管理你的服务与任务）
+
+- **添加服务/任务**：点「+ 添加服务」卡片或页头快捷按钮。选择工作区文件夹后会自动识别项目类型（Node/pnpm、Hexo/Hugo、Django/FastAPI、Go、Rust、静态站点等）并给出候选命令；也可以「选择脚本」或完全手动填写。`service` 是长期服务（带端口语义），`task` 是有明确结束时间的批处理（强制无端口）。
+- **卡片**：大按钮启动/停止（任务是运行/中止）；右侧一排小按钮（复制链接/日志/诊断/重启/编辑/删除）常显，不用悬浮。运行中显示端口与时长；配置失效（目录/脚本丢失）会直接标出原因并禁用启动，点开「启动诊断」有修复建议。
+- **筛选**：每个分区右上角可按 全部/运行中/已停止/异常（任务为 全部/运行中/成功/失败/已取消）过滤，点按即时切换。
+- **排序**：鼠标拖拽，或聚焦卡片后按空格进入键盘排序（方向键移动，空格确认）。
+- **批量停止**：右侧「快捷操作」里可一键停止全部运行中的应用（有确认框，逐个安全停止，绝不按端口杀进程）。
+
+### 服务监控（看这台 Mac 在跑什么）
+
+- **概览卡**：在线服务/后台应用/总 CPU/总内存（带最近一分钟负载曲线）/端口警告/最后更新。
+- **服务表格**：每个服务的 PID、端口、目录、负载、时长、状态，以及**启动者徽标**——溯源显示这个进程是哪个 AI 助手（Codex/Claude/Kimi 等）、编辑器（VS Code/Cursor 等）、终端或总控台启动的。点端口直接打开服务；行尾按钮可加入启动台、置顶、隐藏、展开完整命令或安全结束进程。
+- **发现新端口**：页面打开期间新出现的监听端口会单独提醒，可一键「加入启动台」（自动识别项目并原子认领进程）、「忽略并隐藏」或「暂时关闭」。
+- **后台与已隐藏**：系统/GUI 应用进程默认折叠在「应用后台」；被隐藏的服务可随时恢复。
+- **关注的进程**：输入关键字（如 `ffmpeg`）回车，匹配进程实时列出。
+
+### 日志中心（⌘J）
+
+导航轨「日志中心」或快捷键 ⌘J（⌘L 是浏览器保留键）：所有应用按运行中优先排列，点开任意一行看实时日志；底部固定总控台自身日志入口。
+
+### 设置中心
+
+导航轨齿轮：任务完成通知开关（系统通知，切走页面也能收到）、外观三态（自动/浅色/深色）、版本/端口/工作目录/数据目录信息。
+
+### 命令面板（⌘K）
+
+全局搜索并执行：添加服务/任务、启动/停止/重启任意应用、打开页面、查看日志、切换视图、开关任务通知、查看总控台日志等，全键盘操作。
+
+### 使用要点
+
+- 红色按钮会结束进程或删除应用，需要二次确认。
+- 批处理任务自然退出 `0` 表示成功，其他非零退出码表示失败；脚本内部用户主动取消请退出 `130`（显示为「已取消」）；总控台按钮主动中止单独显示为「已中止」。
+- 选择批处理脚本时，总控台只保存脚本的绝对路径和生成的执行命令，不会复制或托管脚本内容。脚本移动、改名或删除后，任务会失效；建议将个人脚本放在长期稳定、会单独备份的自动化目录中。
+- 停止总控台不会自动停止已启动的独立服务；配置里的应用、图标、关注关键字和隐藏/置顶标记都会保留。
+
+### 批处理退出码约定
+
+任务自然退出 `0` = 成功，其他非零 = 失败；脚本内部用户主动取消请退出 `130`（显示为「已取消」而非失败）；总控台按钮中止显示为「已中止」。Python 用 `raise SystemExit(130)`，Shell 用 `exit 130`，Node.js 设 `process.exitCode = 130`。此约定只用于 `task`，长期服务仍按普通退出处理。
+
+### 新端口发现的基线规则
+
+「服务监控」只提醒**页面打开后新出现**、尚未纳入启动台的本地服务。首次载入、页面从后台恢复、断线重连或总控台重启后的第一份状态只用于建立静默基线，不会把已有端口全部弹一遍。「忽略并隐藏」写入配置并可恢复；「暂时关闭」只影响当前页面会话。
+
+## 数据、隐私与备份
+
+运行数据与程序目录分离，默认放在当前用户的数据目录：
+
+| 平台 | 路径 | 内容 | 备份建议 |
+| --- | --- | --- | --- |
+| Windows | `%APPDATA%\总控台\config.json` | 应用命令、本地路径、端口、标记和运行识别信息 | 必须 |
+| Windows | `%APPDATA%\总控台\config.json.bak` | 上一份已知良好的配置 | 必须 |
+| Windows | `%APPDATA%\总控台\icons\` | 用户上传的图标和站点图标 | 按需 |
+| Windows | `%LOCALAPPDATA%\总控台\` | 应用与总控台运行日志 | 通常不需 |
+| macOS | `~/Library/Application Support/总控台/` | 配置与图标 | 必须 |
+| macOS | `~/Library/Logs/总控台/` | 应用与总控台运行日志 | 通常不需 |
+
+macOS 上目录权限会收紧为 `0700`、文件为 `0600`；Windows 无 POSIX 权限位，沿用系统 ACL。这些文件仍可能含个人路径、完整 shell 命令和日志内容；不应进入 Git，也不应随发行包或故障报告对外传播。
+
+### 旧版数据首次迁移
+
+如果新目标目录尚不存在，首次启动会将项目内旧 `data/config.json{,.bak}` 和 `data/icons/` 安全复制到 Application Support，将 `data/logs/` 复制到 Library Logs。迁移使用临时目录后原子落位，并且：
+
+- 旧 `data/` 始终保留，不会自动删除。
+- 目标已存在时绝不覆盖或合并，避免把更新的用户数据换回旧版。
+- 符号链接和非普通文件不会被复制。
+- 显式设置 `CONSOLE_DATA_DIR` 或 `CONSOLE_LOG_DIR` 时，对应目录不执行旧数据自动迁移。
+
+需要自定义路径时：
+
+```bash
+# macOS
+CONSOLE_DATA_DIR="/private/path/console-data" \
+CONSOLE_LOG_DIR="/private/path/console-logs" \
+python3 server.py
+
+# Windows（PowerShell）
+$env:CONSOLE_DATA_DIR = "D:\console-data"
+$env:CONSOLE_LOG_DIR = "D:\console-logs"
+python server.py
+```
+
+自定义值必须是非空的绝对路径，并指向总控台专用的非符号链接子目录；不要直接填 `/`、用户主目录或项目根目录。
+
+### 备份
+
+1. 不再执行新的启动、停止或编辑操作。
+2. 停止总控台。
+3. 将 `~/Library/Application Support/总控台/` 复制到受保护的备份目录。
+4. 记录当前 `VERSION`，以便恢复时匹配配置格式。
+
+### 恢复
+
+1. 确保总控台已停止，并另存当前 `~/Library/Application Support/总控台/`。
+2. 将备份中的 `config.json` 和 `icons/` 复制回对应位置，权限分别设为 `0600` 和 `0700`。
+3. 重新启动，逐项确认命令、工作目录和端口。
+
+如果主配置损坏，程序会验证 `config.json.bak` 并恢复主文件。如果两份都不可用，服务进入只读保护状态，不会用空配置覆盖它们。`config.json.bak` 保留的是每次修改之前的上一份良好配置，而不是主文件的同内容副本。
+
+## 升级
+
+1. 阅读 `CHANGELOG.md`，确认是否有配置或平台变更。
+2. 停止总控台并完整备份 `~/Library/Application Support/总控台/`。
+3. 用新版本替换程序文件；用户数据保持在 Library 目录中。
+4. 运行 `make check`。
+5. 启动后检查应用数量、主题、关注关键字和一个可控服务的完整启停。
+
+配置包含 `schemaVersion`，启动时逐版执行显式、幂等迁移。新程序不会静默降级它不认识的更高 schema；回退程序时仍应同时恢复与该版本匹配的数据备份。
+
+## 卸载
+
+1. 如果不希望已启动的服务继续运行，先在启动台逐个停止它们。
+2. 停止总控台。
+3. 按需导出 `~/Library/Application Support/总控台/` 备份。
+4. 将整个项目目录移到废纸篓。
+5. 确认不再需要数据后，手动删除 `~/Library/Application Support/总控台/` 和 `~/Library/Logs/总控台/`。
+
+程序不会安装系统启动项，卸载时也不会自动删除用户数据。
+
+## 安全边界
+
+总控台不是多用户服务器或远程管理面板。它能以当前 macOS 用户的权限执行你保存的 shell 命令，因此：
+
+- 只添加你已检查且信任的命令和工作目录。
+- 不要将服务绑定到 `0.0.0.0`，不要通过反向代理、SSH 隧道或端口映射对外暴露。
+- 不要在共享或不受信任的用户账户中运行。
+- 不要把 Application Support 中的 `config.json`、Library Logs 日志或故障截图未经脱敏就上传。
+- 本地回环绑定只是第一层边界，不能替代写接口的 Host/Origin/控制令牌防护。发布验收时必须执行 `RELEASE_CHECKLIST.md` 中的安全项。
+
+## 故障排查
+
+### 双击后没有界面
+
+- Windows：确认 `python --version` 可用且符合要求（安装时勾选了 Add python.exe to PATH）。
+- Windows：查看 `%LOCALAPPDATA%\总控台\console.log`，或用 `start.bat` / `python server.py` 从终端启动直接查看错误。
+- macOS：查看 `~/Library/Logs/总控台/console.log`，或从终端运行 `python3 server.py`。
+- 不要单独移动 `总控台.vbs` / `start.bat` / `总控台.app`；启动器必须保持在项目根目录。
+
+### 9600 打不开
+
+程序可能已选择 9601–9609。查看终端输出或 `~/Library/Logs/总控台/console.log` 中的实际地址。服务可访问时，`GET /api/health` 会返回程序版本、配置 schema 和降级原因，且不会执行 `ps/lsof` 扫描。
+
+### 应用启动失败
+
+- 先打开该应用的日志和“启动诊断”。
+- 确认工作目录仍然存在、命令可在普通终端中运行。
+- 检查启动瞬间配置端口是否正被其他进程占用；不同项目允许保存相同的常见开发端口。
+- 无桌面/无终端启动的应用不会读取你的 shell 配置；总控台会补入常用 Node/npm/WinGet/scoop（Windows）或 Homebrew（macOS）路径，但非标准安装仍可能需要显式绝对路径。
+- Windows 上 `python3` 通常不存在，请用 `python` 或 `py`；`.bat`/`.cmd` 脚本请用 `cmd /c <脚本>` 形式保存。
+
+### 配置丢失或损坏
+
+停止总控台，保留当前 `config.json`，然后按上文“恢复”流程使用已知良好的 `config.json.bak` 或离线备份。
+
+## 开发
+
+运行时无第三方 Python 依赖。重新生成品牌图标派生文件或图标库时需要开发依赖：
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+python3 -m pip install -r requirements-dev.txt
+```
+
+主要目录：
+
+```text
+server.py                 Python 标准库后端（macOS/Windows 双平台）
+static/                   原生前端、主题、品牌、图标和字体
+tests/                    后端、前端契约、发布与交付检查
+start.bat / 总控台.vbs      Windows 启动器（终端入口 / 无窗口入口）
+start.command / 总控台.app   macOS 启动器
+tools/gen_brand_assets.py 从品牌主图生成 favicon 与 macOS App Icon
+tools/gen_icons.py         由 vendored SVG 生成 icons.js
+tools/check_project.py     统一的只读项目检查
+data/                      旧版运行数据（仅首次迁移源，不进 Git/发行包）
+```
+
+### 检查
+
+提交前的权威命令是：
+
+```bash
+make check
+```
+
+它会检查 Python/JavaScript/Bash/plist/JSON 语法、版本一致性、主题和资源引用、生成的图标是否同步，并显式发现和运行测试。测试数量为 0 时会失败，不会出现“0 tests 也算通过”。
+
+只运行后端测试：
+
+```bash
+make test
+# 等价的显式命令：
+python3 -m unittest discover -s tests -p 'test_*.py' -v
+```
+
+正式发布前还应运行：
+
+```bash
+make release-check
+```
+
+它会额外检查 Git 状态和不应进入发行范围的文件；不会代替 `RELEASE_CHECKLIST.md` 中的人工验收。
+
+### 重新生成资源
+
+```bash
+make generate-icons
+make generate-brand
+make check
+```
+
+`static/icons.js` 是生成文件，不应手工修改。`generate-brand` 以 `static/assets/console-app-icon.png` 为主源，需要 macOS 自带的 `iconutil`。重新生成品牌图标后，只提交预期的差异，并同步更新 `ASSET_PROVENANCE.md` 的 SHA-256。
+
+## 发布
+
+请按 `RELEASE_CHECKLIST.md` 逐项验收。一个可对外交付的版本至少需要：
+
+- 与根目录 MIT 许可证一致的版权信息，以及全部第三方素材和项目图像的来源、许可与授权凭证。
+- 干净、可追溯的 Git commit 和带签名版本 Tag。
+- 通过 `make release-check` 和人工 UI/安全/升级/回滚验收。
+- 不含任何项目内旧 `data/`、用户 Library 数据、日志、绝对路径、token 或缓存的发行包。
+- 针对目标 Mac 的签名、公证、完整性校验、全新安装和回退证据。
+
+## 参与贡献与安全
+
+- 提交代码前请阅读 [`CONTRIBUTING.md`](CONTRIBUTING.md)，并运行 `make check`。
+- 行为规范见 [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md)。
+- 安全问题不要作为普通公开 Issue 披露；报告方式和脱敏要求见 [`SECURITY.md`](SECURITY.md)。
+- 新增或替换字体、图标、插画、纹理等素材时，必须同步更新 [`ASSET_PROVENANCE.md`](ASSET_PROVENANCE.md) 和 [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md)。
+
+## 许可与第三方素材
+
+项目自有代码和文档采用 [`MIT License`](LICENSE)。Lucide、Geist Mono 以及项目生成图像等素材可能适用各自的许可或发布限制，不因根目录 MIT 许可证而自动改变，详见 [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md) 与 [`ASSET_PROVENANCE.md`](ASSET_PROVENANCE.md)。
