@@ -5,13 +5,20 @@
 import { $, el, setText, setChildren, setKpi, setKpiUnit, icon, iconBtn, escapeHtml,
   post, del, act, toast, openLayer, closeLayer, reconcile,
   state, findApp, fmtUptime, fmtDuration, taskExitStatus,
-  localServiceUrl } from './core.js';
+  localServiceUrl, truncateMiddle, shortHome } from './core.js';
 import { openConfirm, openAppModal, openLogs, getIconVer } from './overlays.js';
 import { configuredPort, actualPorts, hasPortMismatch,
   preferredOpenPort, displayedPorts, portIsOpenable } from './ports.js';
 
 const svcGrid = $('#svcGrid'), taskGrid = $('#taskGrid');
+const lpSvcDiscovery = $('#lpSvcDiscovery');
+const lpSvcDiscoveryList = $('#lpSvcDiscoveryList');
+const lpSvcDiscoveryCount = $('#lpSvcDiscoveryCount');
+const lpSvcDiscoveryImport = $('#lpSvcDiscoveryImport');
+const lpSvcDiscoveryIcon = $('#lpSvcDiscoveryIcon');
 const reorderStatus = $('#reorderStatus');
+let lpSvcDiscoveryBusy = false;
+if (lpSvcDiscoveryIcon) setChildren(lpSvcDiscoveryIcon, icon('activity', 15));
 /* ---------------- 图标取色光晕 ---------------- */
 function hueFromString(s) {
   let h = 0;
@@ -980,6 +987,94 @@ function finishKeyboardSort(commit) {
   }
 }
 
+/* ---------------- 已发现但尚未收纳的本地服务 ---------------- */
+function discoverableServices(data) {
+  return (data && Array.isArray(data.services) ? data.services : [])
+    .filter(svc => svc && svc.group === 'mine' && !svc.hidden && !svc.appId
+      && Number.isInteger(Number(svc.pid)) && Number(svc.pid) > 0
+      && Number.isInteger(Number(svc.port)) && Number(svc.port) > 0)
+    .sort((left, right) => {
+      const leftReady = left.cwd && left.cmd ? 0 : 1;
+      const rightReady = right.cwd && right.cmd ? 0 : 1;
+      return leftReady - rightReady || Number(left.port) - Number(right.port);
+    });
+}
+
+function discoverableKey(svc) {
+  return svc.instanceKey || (String(svc.pid) + ':' + String(svc.port));
+}
+
+function createDiscoveryCard() {
+  const card = el('article', 'lp-discovery-card');
+  const copy = el('div', 'lp-discovery-card-copy');
+  const name = el('strong', 'lp-discovery-card-name');
+  const meta = el('div', 'lp-discovery-card-meta');
+  const detail = el('div', 'lp-discovery-card-detail');
+  const action = el('button', 'btn lp-discovery-card-action');
+  action.type = 'button';
+  copy.append(name, meta, detail);
+  card.append(copy, action);
+  card._r = { name, meta, detail, action };
+  return card;
+}
+
+function updateDiscoveryCard(card, svc) {
+  const r = card._r;
+  const ready = Boolean(svc.cwd && svc.cmd);
+  const title = svc.project || svc.name || '本地服务';
+  const detail = svc.cwd || svc.cmd || '工作目录暂不可读，无法安全收纳';
+  setText(r.name, title);
+  setText(r.meta, [svc.name || '未知进程', 'PID ' + svc.pid,
+    ':' + svc.port].join(' · '));
+  setText(r.detail, truncateMiddle(shortHome(detail), 76));
+  r.detail.title = detail;
+  r.action.disabled = lpSvcDiscoveryBusy || !ready;
+  r.action.textContent = ready ? '加入启动台' : '信息不足';
+  r.action.title = ready ? '保留当前进程并加入启动台' :
+    '无法读取工作目录，暂不能安全认领';
+  r.action.onclick = () => importDiscoveredServices([svc]);
+}
+
+async function importDiscoveredServices(items) {
+  if (lpSvcDiscoveryBusy) return;
+  const valid = items.filter(svc => svc && svc.cwd && svc.cmd);
+  if (!valid.length) {
+    toast('这些进程缺少工作目录，暂时不能安全加入启动台');
+    return;
+  }
+  lpSvcDiscoveryBusy = true;
+  renderLaunchpadDiscovery(state.data);
+  const result = await act(post('/api/apps/bulk-attach', {
+    items: valid.map(svc => ({ pid: Number(svc.pid), port: Number(svc.port) })),
+  }));
+  lpSvcDiscoveryBusy = false;
+  if (result && result.ok) {
+    const created = Number(result.createdCount || 0);
+    const skipped = Number(result.skippedCount || 0);
+    toast(created
+      ? '已将 ' + created + ' 个服务加入启动台' +
+        (skipped ? '，跳过 ' + skipped + ' 个' : '')
+      : '服务状态已变化，暂未加入启动台');
+  }
+  await window.__poll();
+}
+
+function renderLaunchpadDiscovery(data) {
+  if (!lpSvcDiscovery || !lpSvcDiscoveryList) return;
+  const candidates = discoverableServices(data);
+  lpSvcDiscovery.hidden = candidates.length === 0;
+  setText(lpSvcDiscoveryCount, String(candidates.length));
+  const readyCount = candidates.filter(svc => svc.cwd && svc.cmd).length;
+  lpSvcDiscoveryImport.disabled = lpSvcDiscoveryBusy || readyCount === 0;
+  lpSvcDiscoveryImport.textContent = lpSvcDiscoveryBusy ? '正在收纳…' :
+    (readyCount ? '全部加入启动台' : '暂无可安全收纳项');
+  reconcile(lpSvcDiscoveryList, candidates, discoverableKey,
+    createDiscoveryCard, updateDiscoveryCard, true);
+}
+
+lpSvcDiscoveryImport?.addEventListener('click', () =>
+  importDiscoveredServices(discoverableServices(state.data)));
+
 export function renderLaunchpad(apps, firstRender) {
   if (drag || keyboardSort) return;  // 排序中轮询不打乱 DOM
   const svcs = apps.filter(a => (a.kind || 'service') !== 'task');
@@ -992,6 +1087,7 @@ export function renderLaunchpad(apps, firstRender) {
   svcGrid.prepend(addSvc);                  // 新增入口始终优先可见
   reconcile(taskGrid, tasks, a => a.id, createAppCard, updateAppCard, firstRender);
   taskGrid.prepend(addTask);                // 批处理新增入口始终优先可见
+  renderLaunchpadDiscovery(state.data);
   renderLpKpi(apps, svcs, tasks);
   latestSvcs = svcs;
   latestTasks = tasks;

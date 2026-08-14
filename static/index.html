@@ -183,6 +183,16 @@
             <!-- 长期服务 -->
             <section class="panel">
               <div class="sec-label"><span>Services · 服务</span><span class="sec-count" id="svcSecCount"></span><i></i><div class="filter-row" id="svcFilter" role="group" aria-label="筛选服务"></div></div>
+              <div class="lp-discovery" id="lpSvcDiscovery" hidden>
+                <div class="lp-discovery-head">
+                  <div class="lp-discovery-copy">
+                    <div class="lp-discovery-title"><span id="lpSvcDiscoveryIcon" aria-hidden="true"></span><strong>已发现的本地服务</strong><span class="lp-discovery-count" id="lpSvcDiscoveryCount">0</span></div>
+                    <p>服务监控已识别到尚未收纳的监听端口，可一键加入启动台。</p>
+                  </div>
+                  <button class="btn btn-accent lp-discovery-import" id="lpSvcDiscoveryImport" type="button">全部加入启动台</button>
+                </div>
+                <div class="lp-discovery-list" id="lpSvcDiscoveryList" role="list" aria-live="polite"></div>
+              </div>
               <div class="app-grid" id="svcGrid">
                 <button class="app-card add-card" id="addSvcCard" type="button">
                   <span class="add-plus" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14" /><path d="M12 5v14" /></svg></span>

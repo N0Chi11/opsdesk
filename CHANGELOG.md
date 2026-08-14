@@ -10,6 +10,8 @@
 
 ### Added
 
+- 启动台新增“已发现的本地服务”区域：自动展示服务监控中尚未收纳的监听服务，并支持单个或批量加入启动台；缺少工作目录的进程会明确提示，不会被强行认领。
+
 - **Windows 支持**：后端平台层完成 Windows 移植（`netstat` 监听扫描、
   NtQuerySystemInformation + PEB 进程快照、SID 归属校验、TerminateProcess 进程树结束、
   PowerShell 原生目录/文件选择框、msvcrt 实例锁、`%APPDATA%\总控台` / `%LOCALAPPDATA%\总控台`

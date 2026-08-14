@@ -1293,6 +1293,46 @@ body::before {
 .bulk-import-trigger { flex: none; height: 29px; padding-inline: 10px; font-size: 11px; letter-spacing: 0; }
 .bulk-import-trigger .ic { margin-right: 5px; vertical-align: -2px; }
 
+/* 启动台中的自动发现服务：先展示，再由用户确认是否收纳。 */
+.lp-discovery {
+  margin: -2px 0 16px;
+  padding: 14px 16px 12px;
+  border: 1px solid color-mix(in srgb, var(--accent) 24%, var(--line));
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--accent) 4%, var(--card));
+}
+.lp-discovery-head { display: flex; align-items: center; gap: 16px; }
+.lp-discovery-copy { min-width: 0; flex: 1; }
+.lp-discovery-title { display: flex; align-items: center; gap: 8px; color: var(--ink); }
+.lp-discovery-title > span:first-child { display: inline-flex; color: var(--accent); }
+.lp-discovery-title strong { font-size: 13px; letter-spacing: .02em; }
+.lp-discovery-count {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 20px; height: 20px; padding: 0 6px; border-radius: 999px;
+  color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, transparent);
+  font: 700 10px var(--mono);
+}
+.lp-discovery-copy p { margin: 5px 0 0; color: var(--ink-3); font-size: 11.5px; }
+.lp-discovery-import { flex: none; height: 30px; padding-inline: 12px; font-size: 11px; }
+.lp-discovery-list {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(270px, 1fr));
+  gap: 9px; margin-top: 12px;
+}
+.lp-discovery-card {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center;
+  gap: 12px; min-width: 0; padding: 11px 12px;
+  border: 1px solid var(--line); border-radius: 10px; background: var(--card);
+}
+.lp-discovery-card-copy { min-width: 0; }
+.lp-discovery-card-name, .lp-discovery-card-meta, .lp-discovery-card-detail {
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.lp-discovery-card-name { display: block; color: var(--ink); font-size: 12.5px; }
+.lp-discovery-card-meta { margin-top: 3px; color: var(--ink-2); font: 10px var(--mono); }
+.lp-discovery-card-detail { margin-top: 3px; color: var(--ink-4); font: 10px var(--mono); }
+.lp-discovery-card-action { height: 28px; padding-inline: 9px; font-size: 10.5px; white-space: nowrap; }
+.lp-discovery-card-action:disabled { cursor: not-allowed; opacity: .55; }
+
 .modal, .palette {
   box-shadow: 0 24px 70px color-mix(in srgb, var(--ink) 22%, transparent),
     inset 0 1px 0 color-mix(in srgb, var(--card) 80%, transparent);
@@ -1309,4 +1349,6 @@ body::before {
   .bulk-import-toolbar { flex-wrap: wrap; }
   .bulk-import-toolbar > i { display: none; }
   .bulk-import-selection { flex: 1; }
+  .lp-discovery-head { align-items: stretch; flex-direction: column; gap: 10px; }
+  .lp-discovery-import { width: 100%; }
 }
