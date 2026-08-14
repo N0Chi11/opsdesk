@@ -16,9 +16,17 @@ const lpSvcDiscoveryList = $('#lpSvcDiscoveryList');
 const lpSvcDiscoveryCount = $('#lpSvcDiscoveryCount');
 const lpSvcDiscoveryImport = $('#lpSvcDiscoveryImport');
 const lpSvcDiscoveryIcon = $('#lpSvcDiscoveryIcon');
+const lpProjectDiscovery = $('#lpProjectDiscovery');
+const lpProjectDiscoveryList = $('#lpProjectDiscoveryList');
+const lpProjectDiscoveryCount = $('#lpProjectDiscoveryCount');
+const lpProjectDiscoveryStatus = $('#lpProjectDiscoveryStatus');
+const lpProjectDiscoveryIcon = $('#lpProjectDiscoveryIcon');
 const reorderStatus = $('#reorderStatus');
 let lpSvcDiscoveryBusy = false;
+const projectSuggestionCache = new Map();
+const projectSuggestionLoading = new Set();
 if (lpSvcDiscoveryIcon) setChildren(lpSvcDiscoveryIcon, icon('activity', 15));
+if (lpProjectDiscoveryIcon) setChildren(lpProjectDiscoveryIcon, icon('terminal', 15));
 /* ---------------- 图标取色光晕 ---------------- */
 function hueFromString(s) {
   let h = 0;
@@ -1075,6 +1083,105 @@ function renderLaunchpadDiscovery(data) {
 lpSvcDiscoveryImport?.addEventListener('click', () =>
   importDiscoveredServices(discoverableServices(state.data)));
 
+/* ---------------- 已配置项目的服务 / 任务命令建议 ---------------- */
+function projectSuggestionKey(item) {
+  return item.cwd + '|' + item.candidate.command;
+}
+
+function projectSuggestions(apps) {
+  const existing = new Set((apps || []).map(app =>
+    [app.cwd || '', app.command || ''].join('|')));
+  const result = [];
+  for (const [cwd, detected] of projectSuggestionCache) {
+    for (const candidate of (detected.candidates || [])) {
+      if (!candidate || !candidate.command) continue;
+      if (existing.has([cwd, candidate.command].join('|'))) continue;
+      result.push({ cwd, project: detected.name || projectName(cwd), candidate });
+    }
+  }
+  return result;
+}
+
+function projectName(cwd) {
+  const clean = String(cwd || '').replace(/[\\/]+$/, '');
+  return clean.split(/[\\/]/).pop() || '本地项目';
+}
+
+function createProjectSuggestionCard() {
+  const card = el('article', 'lp-project-suggestion-card');
+  const copy = el('div', 'lp-project-suggestion-copy');
+  const title = el('strong', 'lp-project-suggestion-name');
+  const meta = el('div', 'lp-project-suggestion-meta');
+  const detail = el('div', 'lp-project-suggestion-detail');
+  const action = el('button', 'btn lp-project-suggestion-action');
+  action.type = 'button';
+  copy.append(title, meta, detail);
+  card.append(copy, action);
+  card._r = { title, meta, detail, action };
+  return card;
+}
+
+function updateProjectSuggestionCard(card, item) {
+  const r = card._r;
+  const candidate = item.candidate;
+  const isTask = candidate.kind === 'task';
+  setText(r.title, candidate.label || candidate.command);
+  setText(r.meta, item.project + ' · ' + (isTask ? '批处理任务' :
+    '服务' + (candidate.port ? ' · :' + candidate.port : '')));
+  setText(r.detail, truncateMiddle(candidate.command, 76));
+  r.detail.title = candidate.command + (candidate.detail ? '\n' + candidate.detail : '');
+  r.action.textContent = isTask ? '添加任务' : '添加服务';
+  r.action.disabled = false;
+  r.action.onclick = () => addProjectSuggestion(item, r.action);
+}
+
+async function addProjectSuggestion(item, button) {
+  if (button.disabled) return;
+  button.disabled = true;
+  const candidate = item.candidate;
+  const result = await act(post('/api/apps', {
+    name: candidate.label || candidate.command,
+    command: candidate.command,
+    cwd: item.cwd,
+    port: candidate.kind === 'task' ? null : candidate.port,
+    kind: candidate.kind === 'task' ? 'task' : 'service',
+  }));
+  if (result && result.id) {
+    toast((candidate.kind === 'task' ? '任务' : '服务') + '已添加到启动台');
+    await window.__poll();
+  } else {
+    button.disabled = false;
+  }
+}
+
+function renderProjectSuggestions(apps) {
+  if (!lpProjectDiscovery || !lpProjectDiscoveryList) return;
+  const roots = [...new Set((apps || []).map(app => app.cwd)
+    .filter(cwd => typeof cwd === 'string' && cwd.trim()))];
+  for (const cwd of roots) {
+    if (projectSuggestionCache.has(cwd) || projectSuggestionLoading.has(cwd)) continue;
+    projectSuggestionLoading.add(cwd);
+    post('/api/project/detect', { cwd }).then(result => {
+      projectSuggestionCache.set(cwd, result && result.ok
+        ? result : { cwd, name: projectName(cwd), candidates: [] });
+    }).catch(() => {
+      projectSuggestionCache.set(cwd, { cwd, name: projectName(cwd), candidates: [] });
+    }).finally(() => {
+      projectSuggestionLoading.delete(cwd);
+      renderProjectSuggestions((state.data && state.data.apps) || []);
+    });
+  }
+  const suggestions = projectSuggestions(apps);
+  const loading = projectSuggestionLoading.size > 0;
+  lpProjectDiscovery.hidden = !loading && suggestions.length === 0;
+  setText(lpProjectDiscoveryCount, String(suggestions.length));
+  setText(lpProjectDiscoveryStatus, loading
+    ? '正在读取已配置项目的启动脚本…'
+    : '从已配置项目自动识别服务、构建、测试和检查命令。');
+  reconcile(lpProjectDiscoveryList, suggestions, projectSuggestionKey,
+    createProjectSuggestionCard, updateProjectSuggestionCard, true);
+}
+
 export function renderLaunchpad(apps, firstRender) {
   if (drag || keyboardSort) return;  // 排序中轮询不打乱 DOM
   const svcs = apps.filter(a => (a.kind || 'service') !== 'task');
@@ -1088,6 +1195,7 @@ export function renderLaunchpad(apps, firstRender) {
   reconcile(taskGrid, tasks, a => a.id, createAppCard, updateAppCard, firstRender);
   taskGrid.prepend(addTask);                // 批处理新增入口始终优先可见
   renderLaunchpadDiscovery(state.data);
+  renderProjectSuggestions(apps);
   renderLpKpi(apps, svcs, tasks);
   latestSvcs = svcs;
   latestTasks = tasks;

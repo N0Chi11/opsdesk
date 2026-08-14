@@ -337,9 +337,10 @@ class ProjectDetectionTests(unittest.TestCase):
 
         self.assertIsNone(error)
         self.assertEqual([item["command"] for item in result["candidates"]],
-                         ["pnpm run dev", "pnpm run preview"])
+                         ["pnpm run dev", "pnpm run preview", "pnpm run build"])
         self.assertEqual([item["port"] for item in result["candidates"]],
-                         [5173, 4173])
+                         [5173, 4173, None])
+        self.assertEqual(result["candidates"][2]["kind"], "task")
         self.assertIn("package.json", result["files"])
         self.assertIn("pnpm-lock.yaml", result["files"])
 
@@ -352,6 +353,18 @@ class ProjectDetectionTests(unittest.TestCase):
 
         self.assertIsNone(error)
         self.assertEqual(result["candidates"][0]["port"], 4321)
+
+    def test_build_suffix_is_a_task_even_when_script_name_looks_like_service(self):
+        with tempfile.TemporaryDirectory() as td:
+            with open(os.path.join(td, "package.json"), "w", encoding="utf-8") as f:
+                json.dump({"scripts": {"docs:dev": "vite", "docs:build": "vite build"}}, f)
+            result, error = server.detect_project(td)
+
+        self.assertIsNone(error)
+        self.assertEqual([item["command"] for item in result["candidates"]],
+                         ["npm run docs:dev", "npm run docs:build"])
+        self.assertEqual([item["kind"] for item in result["candidates"]],
+                         ["service", "task"])
 
     def test_detects_positional_http_server_port_used_by_static_blogs(self):
         with tempfile.TemporaryDirectory() as td:

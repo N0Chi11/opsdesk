@@ -204,6 +204,15 @@
             <!-- 批处理任务 -->
             <section class="panel">
               <div class="sec-label"><span>Tasks · 批处理任务</span><span class="sec-count" id="taskSecCount"></span><i></i><div class="filter-row" id="taskFilter" role="group" aria-label="筛选批处理任务"></div></div>
+              <div class="lp-project-discovery" id="lpProjectDiscovery" hidden>
+                <div class="lp-project-discovery-head">
+                  <div>
+                    <div class="lp-discovery-title"><span id="lpProjectDiscoveryIcon" aria-hidden="true"></span><strong>项目命令建议</strong><span class="lp-discovery-count" id="lpProjectDiscoveryCount">0</span></div>
+                    <p id="lpProjectDiscoveryStatus">从已配置项目读取可启动的服务和批处理命令。</p>
+                  </div>
+                </div>
+                <div class="lp-project-discovery-list" id="lpProjectDiscoveryList" role="list"></div>
+              </div>
               <div class="app-grid" id="taskGrid">
                 <button class="app-card add-card" id="addTaskCard" type="button">
                   <span class="add-plus" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14" /><path d="M12 5v14" /></svg></span>

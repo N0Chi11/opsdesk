@@ -2971,15 +2971,27 @@ def detect_project(root):
             "preview": "本地预览", "docs": "文档站",
             "storybook": "组件预览",
         }
+        non_service_bases = {"build", "test", "lint", "typecheck", "check",
+                             "format", "clean", "analyze", "bundle", "dist"}
+        task_prefixes = (
+            "build", "test", "lint", "typecheck", "check", "verify",
+            "format", "clean", "analyze", "bundle", "dist", "migrate",
+            "demo", "release", "generate", "gen", "publish", "resolve",
+        )
+        def script_is_task(name):
+            parts = re.split(r"[:_-]", str(name).lower())
+            return any(part in non_service_bases or part in task_prefixes
+                       for part in parts)
+
         preferred = ("dev", "develop", "start", "serve", "server", "preview", "docs", "storybook")
-        ordered = [name for name in preferred if name in scripts]
+        ordered = [name for name in preferred
+                   if name in scripts and not script_is_task(name)]
         service_name = re.compile(r"(?:^|[:_-])(dev|develop|start|serve|server|preview|watch|docs|storybook|web|blog)(?:$|[:_-])", re.I)
         # 构建/测试/检查类脚本不是常驻服务（如 build:web 构建完就退出），排除
-        non_service_bases = {"build", "test", "lint", "typecheck", "check",
-                            "format", "clean", "analyze", "bundle", "dist"}
         ordered.extend(
             name for name in scripts if name not in ordered
             and service_name.search(str(name))
+            and not script_is_task(name)
             and str(name).split(":", 1)[0].lower() not in non_service_bases)
         for index, name in enumerate(ordered[:8]):
             script = scripts.get(name)
@@ -2995,6 +3007,22 @@ def detect_project(root):
             add(command, labels.get(str(name).lower(), "项目脚本：%s" % name),
                 "package.json · scripts.%s" % name, port,
                 10 + index, "由项目自己的脚本定义")
+
+        # 构建、测试、校验和迁移脚本不是长期服务，但同样是启动台里
+        # 很有价值的批处理任务。旧逻辑只收集服务命名，导致大型项目的
+        # build/test/lint 等命令被前 8 个服务候选完全遮住。
+        task_names = [
+            name for name in scripts
+            if script_is_task(name)
+        ]
+        for index, name in enumerate(task_names[:16]):
+            script = scripts.get(name)
+            if not isinstance(script, str):
+                continue
+            command = "%s %s" % (runner, shlex.quote(str(name)))
+            add(command, "任务脚本：%s" % name,
+                "package.json · scripts.%s" % name, None,
+                30 + index, "由项目自己的脚本定义", kind="task")
 
     # Hexo 即使没有 scripts 也有稳定 CLI：服务与清缓存分别作为服务/任务。
     if is_hexo:
@@ -3119,7 +3147,7 @@ def detect_project(root):
         "cwd": root,
         "name": os.path.basename(root) or root,
         "files": detected_files,
-        "candidates": candidates[:8],
+        "candidates": candidates[:24],
     }, None
 
 
