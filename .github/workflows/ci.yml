@@ -181,12 +181,20 @@ jobs:
       - name: Run JavaScript tests
         run: python -c "from pathlib import Path; import subprocess, sys; files=[str(path) for path in sorted(Path('tests/js').glob('*.test.mjs'))]; raise SystemExit(subprocess.run(['node', '--test', *files]).returncode)"
 
-      - name: Build and verify release
-        shell: bash
-        run: |
-          python tools/build_release.py --dist dist
-          python tools/build_release.py --dist dist --verify-only
-          python -c "from pathlib import Path; import os, shutil; src=next(Path('dist').glob('console-*.zip')); shutil.copyfile(src, Path(os.environ['RUNNER_TEMP']) / 'console-first.zip')"
-          python tools/build_release.py --dist dist
-          python -c "from pathlib import Path; import os; outputs=list(Path('dist').glob('console-*.zip')); assert len(outputs) == 1 and Path(os.environ['RUNNER_TEMP'], 'console-first.zip').read_bytes() == outputs[0].read_bytes(), 'release archive is not reproducible'"
-          python tools/build_release.py --dist dist --verify-only
+      - name: Build release archive
+        run: python tools/build_release.py --dist dist
+
+      - name: Verify release archive
+        run: python tools/build_release.py --dist dist --verify-only
+
+      - name: Snapshot release archive
+        run: python -c "from pathlib import Path; import os, shutil; src=next(Path('dist').glob('console-*.zip')); shutil.copyfile(src, Path(os.environ['RUNNER_TEMP']) / 'console-first.zip')"
+
+      - name: Rebuild release archive
+        run: python tools/build_release.py --dist dist
+
+      - name: Compare reproducible release archive
+        run: python -c "from pathlib import Path; import os; outputs=list(Path('dist').glob('console-*.zip')); assert len(outputs) == 1 and Path(os.environ['RUNNER_TEMP'], 'console-first.zip').read_bytes() == outputs[0].read_bytes(), 'release archive is not reproducible'"
+
+      - name: Verify rebuilt release archive
+        run: python tools/build_release.py --dist dist --verify-only
