@@ -106,8 +106,26 @@ jobs:
       - name: Check JavaScript syntax - widgets
         run: node --check static/js/widgets.js
 
-      - name: Check JavaScript module bindings
-        run: python -c "from tools.check_project import check_javascript_bindings; print(check_javascript_bindings())"
+      - name: Check JavaScript bindings - app
+        run: python -c "from pathlib import Path; from tools.check_project import javascript_exported_callables, find_unbound_shared_calls; core=Path('static/js/core.js').read_text(encoding='utf-8'); path=Path('static/app.js'); missing=find_unbound_shared_calls(path.read_text(encoding='utf-8'), javascript_exported_callables(core)); assert not missing, 'missing bindings=' + ', '.join(missing)"
+
+      - name: Check JavaScript bindings - icons
+        run: python -c "from pathlib import Path; from tools.check_project import javascript_exported_callables, find_unbound_shared_calls; core=Path('static/js/core.js').read_text(encoding='utf-8'); path=Path('static/icons.js'); missing=find_unbound_shared_calls(path.read_text(encoding='utf-8'), javascript_exported_callables(core)); assert not missing, 'missing bindings=' + ', '.join(missing)"
+
+      - name: Check JavaScript bindings - launchpad
+        run: python -c "from pathlib import Path; from tools.check_project import javascript_exported_callables, find_unbound_shared_calls; core=Path('static/js/core.js').read_text(encoding='utf-8'); path=Path('static/js/launchpad.js'); missing=find_unbound_shared_calls(path.read_text(encoding='utf-8'), javascript_exported_callables(core)); assert not missing, 'missing bindings=' + ', '.join(missing)"
+
+      - name: Check JavaScript bindings - overlays
+        run: python -c "from pathlib import Path; from tools.check_project import javascript_exported_callables, find_unbound_shared_calls; core=Path('static/js/core.js').read_text(encoding='utf-8'); path=Path('static/js/overlays.js'); missing=find_unbound_shared_calls(path.read_text(encoding='utf-8'), javascript_exported_callables(core)); assert not missing, 'missing bindings=' + ', '.join(missing)"
+
+      - name: Check JavaScript bindings - ports
+        run: python -c "from pathlib import Path; from tools.check_project import javascript_exported_callables, find_unbound_shared_calls; core=Path('static/js/core.js').read_text(encoding='utf-8'); path=Path('static/js/ports.js'); missing=find_unbound_shared_calls(path.read_text(encoding='utf-8'), javascript_exported_callables(core)); assert not missing, 'missing bindings=' + ', '.join(missing)"
+
+      - name: Check JavaScript bindings - services
+        run: python -c "from pathlib import Path; from tools.check_project import javascript_exported_callables, find_unbound_shared_calls; core=Path('static/js/core.js').read_text(encoding='utf-8'); path=Path('static/js/services.js'); missing=find_unbound_shared_calls(path.read_text(encoding='utf-8'), javascript_exported_callables(core)); assert not missing, 'missing bindings=' + ', '.join(missing)"
+
+      - name: Check JavaScript bindings - widgets
+        run: python -c "from pathlib import Path; from tools.check_project import javascript_exported_callables, find_unbound_shared_calls; core=Path('static/js/core.js').read_text(encoding='utf-8'); path=Path('static/js/widgets.js'); missing=find_unbound_shared_calls(path.read_text(encoding='utf-8'), javascript_exported_callables(core)); assert not missing, 'missing bindings=' + ', '.join(missing)"
 
       - name: Check startup scripts and plist
         run: python -c "from tools.check_project import check_shell_and_plist; print(check_shell_and_plist())"
