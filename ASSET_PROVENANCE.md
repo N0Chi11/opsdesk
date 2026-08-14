@@ -55,20 +55,20 @@
 ### 统一品牌标识与图标导出
 
 - 路径与 SHA-256：
-  - `static/assets/console-app-icon.png`：`464d5ed1ca52d33c64de4f004df126f280f27f20346620ef0b2e6cb4143ccec3`
-  - `static/assets/brand-mark.png`：`44644d14d7e3cf91808fa2f03e7735f7f4a9ab6c635f29eb98cf7ad4c85eaa0f`
-  - `static/assets/favicon-32.png`：`6c1c34a718d9f26737fc1edc2a1a1fd3838e66826e0a19284e116449f031abbb`
-  - `static/assets/favicon.ico`：`71b9aa89ea479762f7ed7c54a665c88ef7786089523417119292d446ea12648d`
-  - `static/assets/apple-touch-icon.png`：`1108214aa511f206409c2daf7a3f7ac318dd4d2554a95476f2f606bfe8b49621`
-  - `总控台.app/Contents/Resources/AppIcon.icns`：`3ed34bba75ec6a2440d44d9c254ee079ac72b7f2bbc1605a873472131cf56568`
+  - `static/assets/console-app-icon.png`：`1374d682b7c5e0184ee4f77e45291dc01525c668edb33413ef475a51b11814e6`
+  - `static/assets/brand-mark.png`：`1374d682b7c5e0184ee4f77e45291dc01525c668edb33413ef475a51b11814e6`
+  - `static/assets/favicon-32.png`：`15d42946b4ac0b2b2ca40df6b46e18ac887e336e82924cce2ad2c6eaae71d28d`
+  - `static/assets/favicon.ico`：`9534ab5ebab77f57dde4a8a3af6c89b316dd2cc282382a34fbc6378095cecd77`
+  - `static/assets/apple-touch-icon.png`：`558a53aedd084f8435b4470c895298daf4585052347e3819218e0e32b7e655ab`
+  - `总控台.app/Contents/Resources/AppIcon.icns`：`beb9c7e3350983807d3742fcc73f21857aca5bf3ab6ce73cf2f862073e73f1ce`
 - 用途：macOS App Icon、浏览器 favicon、Apple Touch Icon 与网页顶栏品牌标识
-- 设计：琥珀色“长期服务”轨道与紫色“批处理任务”轨道汇聚到青柠色状态节点，呼应产品的两类本地操作与统一监测
-- 来源：由项目维护者在用户明确选定第三套方向后，于 2026-07-23 在 Codex 中使用 OpenAI Image Generation `image_gen` 工具生成；工具没有向本次会话暴露底层模型版本
-- 修改：主输出经透明通道整理、裁切和安全留白处理形成 `console-app-icon.png` 与 `brand-mark.png`；`tools/gen_brand_assets.py` 使用 Pillow Lanczos 缩放和 macOS `iconutil` 生成网页图标与 ICNS
-- 凭证：本地维护档案 `tmp/brand/`（不进入 Git/发行包）、`tools/gen_brand_assets.py`、本文件校验值和 Git 历史
-- 许可：作为项目定向生成的品牌素材使用；公开发行前仍需由发布负责人保存当次 OpenAI 适用条款、生成主体和可再分发结论
-- 状态：`REVIEW_REQUIRED`
-- 待办：将原始输出、当次条款快照和人工权利结论归档到发布记录；若未来需要可编辑矢量主源，应另行重绘并重新登记，不能把当前 PNG 描摹为“原始矢量”
+- 设计：深色圆角底板、蓝色开放轨道、白色信号路径，以及蓝紫琥珀三色状态节点，表达服务流转、批处理与状态反馈
+- 来源：由项目维护者通过仓库内 `tools/gen_brand_assets.py` 的 Pillow 几何绘制逻辑于 2026-08-14 确定性生成；不使用第三方 Logo、字体、图片或 AI 生成素材
+- 修改：以 1254×1254 RGBA 几何图形作为主源，使用 Pillow Lanczos 派生网页图标与 Apple Touch Icon，并由同一脚本写出 PNG-backed ICNS；Windows 与 macOS 均可重新生成
+- 凭证：`tools/gen_brand_assets.py`、本文件校验值和 Git 历史
+- 许可：项目原创几何设计，可随本项目按根目录 MIT License 再分发；不暗示 OpsDesk 与任何第三方品牌存在关联
+- 状态：`CLEARED`
+- 复核：发布负责人应在发行前对最终归档产物重新计算 SHA-256；若未来替换主源，须重新登记来源、修改记录和许可结论
 
 ## 更新规则
 

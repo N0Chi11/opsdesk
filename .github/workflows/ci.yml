@@ -38,14 +38,14 @@ jobs:
           node --version
 
       - name: Run project checks
-        run: make check PYTHON=python
+        run: python tools/check_project.py
 
       - name: Build and verify release
         shell: bash
         run: |
-          make release PYTHON=python
-          make release-verify PYTHON=python
-          cp dist/console-*.zip "$RUNNER_TEMP/console-first.zip"
-          make release PYTHON=python
-          cmp "$RUNNER_TEMP/console-first.zip" dist/console-*.zip
-          make release-verify PYTHON=python
+          python tools/build_release.py --dist dist
+          python tools/build_release.py --dist dist --verify-only
+          python -c "from pathlib import Path; import os, shutil; src=next(Path('dist').glob('console-*.zip')); shutil.copyfile(src, Path(os.environ['RUNNER_TEMP']) / 'console-first.zip')"
+          python tools/build_release.py --dist dist
+          python -c "from pathlib import Path; import os; outputs=list(Path('dist').glob('console-*.zip')); assert len(outputs) == 1 and Path(os.environ['RUNNER_TEMP'], 'console-first.zip').read_bytes() == outputs[0].read_bytes(), 'release archive is not reproducible'"
+          python tools/build_release.py --dist dist --verify-only
