@@ -38,20 +38,16 @@ jobs:
           node --version
 
       - name: Check required project files
-        run: python -c "from tools.check_project import check_required_files; print(check_required_files())"
+        run: python -c "from pathlib import Path; root=Path('.'); names=['VERSION','README.md','CHANGELOG.md','LICENSE','SECURITY.md','CONTRIBUTING.md','CODE_OF_CONDUCT.md','ASSET_PROVENANCE.md','THIRD_PARTY_NOTICES.md','RELEASE_CHECKLIST.md','requirements-dev.txt','Makefile','server.py','start.command','start.bat','总控台.vbs']; missing=[name for name in names if not (root / name).is_file()]; assert not missing, 'missing project files: ' + ', '.join(missing)"
 
-      - name: Report required-file diagnostics
-        if: ${{ failure() }}
-        shell: bash
-        run: |
-          python - <<'PY'
-          from tools.check_project import check_required_files
+      - name: Check required workflow files
+        run: python -c "from pathlib import Path; root=Path('.'); names=['.github/workflows/ci.yml','.github/ISSUE_TEMPLATE/config.yml','.github/ISSUE_TEMPLATE/bug_report.yml','.github/ISSUE_TEMPLATE/feature_request.yml','.github/PULL_REQUEST_TEMPLATE.md']; missing=[name for name in names if not (root / name).is_file()]; assert not missing, 'missing workflow files: ' + ', '.join(missing)"
 
-          try:
-              check_required_files()
-          except Exception as exc:
-              print(f"::error title=Required-file check::{exc}")
-          PY
+      - name: Check required source and screenshot files
+        run: python -c "from pathlib import Path; root=Path('.'); names=['tests/test_server.py','docs/screenshots/ops-launchpad.jpg','docs/screenshots/ops-services.jpg','static/index.html','static/app.js']; missing=[name for name in names if not (root / name).is_file()]; assert not missing, 'missing source files: ' + ', '.join(missing)"
+
+      - name: Check macOS app bundle files
+        run: python -c "from pathlib import Path; root=Path('.'); names=['总控台.app/Contents/Info.plist','总控台.app/Contents/MacOS/launcher']; missing=[name for name in names if not (root / name).is_file()]; assert not missing, 'missing macOS files: ' + ', '.join(missing)"
 
       - name: Check version metadata
         run: python -c "from tools.check_project import check_version; print(check_version())"
