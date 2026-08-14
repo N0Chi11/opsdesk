@@ -165,8 +165,11 @@ jobs:
       - name: Check theme registry
         run: python -c "from tools.check_project import check_themes; print(check_themes())"
 
-      - name: Check static references and modules
-        run: python -c "from tools.check_project import check_static_references; print(check_static_references())"
+      - name: Check static resource references
+        run: python -c "from tools.check_project import check_static_resource_references; print(check_static_resource_references())"
+
+      - name: Check local module imports
+        run: python -c "from tools.check_project import check_local_module_imports; print(check_local_module_imports())"
 
       - name: Check generated icons
         run: python -c "from tools.check_project import check_generated_icons; print(check_generated_icons())"

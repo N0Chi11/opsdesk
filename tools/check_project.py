@@ -466,7 +466,7 @@ def check_themes() -> str:
     return ", ".join(sorted(ids))
 
 
-def check_static_references() -> str:
+def check_static_resource_references() -> int:
     files = [STATIC / "index.html"]
     files.extend(
         manifest.with_suffix(".css")
@@ -489,7 +489,10 @@ def check_static_references() -> str:
             require(".." not in Path(relative).parts, f"静态引用包含路径穿越: {ref}")
             require((STATIC / relative).is_file(), f"静态引用不存在: {ref}")
             checked += 1
+    return checked
 
+
+def check_local_module_imports() -> int:
     import_re = re.compile(
         r"(?:\bfrom\s*|\bimport\s*)['\"]([^'\"]+\.js)['\"]"
     )
@@ -505,6 +508,12 @@ def check_static_references() -> str:
                     raise CheckError(f"{path.relative_to(ROOT)} 导入越界: {specifier}") from exc
                 require(target.is_file(), f"{path.relative_to(ROOT)} 导入不存在: {specifier}")
                 module_count += 1
+    return module_count
+
+
+def check_static_references() -> str:
+    checked = check_static_resource_references()
+    module_count = check_local_module_imports()
     return f"{checked} 个静态资源 + {module_count} 个本地模块导入"
 
 
