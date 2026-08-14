@@ -142,7 +142,25 @@ jobs:
         run: python -c "from pathlib import Path; import re; lines=[line.strip() for line in Path('requirements-dev.txt').read_text(encoding='utf-8').splitlines() if line.strip() and not line.lstrip().startswith('#')]; assert lines; unpinned=[line for line in lines if not re.fullmatch(r'[A-Za-z0-9_.-]+==[A-Za-z0-9_.+!-]+', line)]; assert not unpinned, 'unpinned dependencies=' + ', '.join(unpinned)"
 
       - name: Check asset provenance
-        run: python -c "from tools.check_project import check_asset_provenance; print(check_asset_provenance())"
+        run: python -c "from pathlib import Path; import hashlib; path=Path('static/assets/console-app-icon.png'); text=Path('ASSET_PROVENANCE.md').read_text(encoding='utf-8'); assert path.as_posix() in text and hashlib.sha256(path.read_bytes()).hexdigest() in text"
+
+      - name: Check asset provenance - brand mark
+        run: python -c "from pathlib import Path; import hashlib; path=Path('static/assets/brand-mark.png'); text=Path('ASSET_PROVENANCE.md').read_text(encoding='utf-8'); assert path.as_posix() in text and hashlib.sha256(path.read_bytes()).hexdigest() in text"
+
+      - name: Check asset provenance - favicon png
+        run: python -c "from pathlib import Path; import hashlib; path=Path('static/assets/favicon-32.png'); text=Path('ASSET_PROVENANCE.md').read_text(encoding='utf-8'); assert path.as_posix() in text and hashlib.sha256(path.read_bytes()).hexdigest() in text"
+
+      - name: Check asset provenance - favicon ico
+        run: python -c "from pathlib import Path; import hashlib; path=Path('static/assets/favicon.ico'); text=Path('ASSET_PROVENANCE.md').read_text(encoding='utf-8'); assert path.as_posix() in text and hashlib.sha256(path.read_bytes()).hexdigest() in text"
+
+      - name: Check asset provenance - apple touch icon
+        run: python -c "from pathlib import Path; import hashlib; path=Path('static/assets/apple-touch-icon.png'); text=Path('ASSET_PROVENANCE.md').read_text(encoding='utf-8'); assert path.as_posix() in text and hashlib.sha256(path.read_bytes()).hexdigest() in text"
+
+      - name: Check asset provenance - Geist Mono
+        run: python -c "from pathlib import Path; import hashlib; path=Path('static/fonts/GeistMono-Variable.woff2'); text=Path('ASSET_PROVENANCE.md').read_text(encoding='utf-8'); assert path.as_posix() in text and hashlib.sha256(path.read_bytes()).hexdigest() in text"
+
+      - name: Check asset provenance - macOS app icon
+        run: python -c "from pathlib import Path; import hashlib; path=Path('总控台.app/Contents/Resources/AppIcon.icns'); text=Path('ASSET_PROVENANCE.md').read_text(encoding='utf-8'); assert path.as_posix() in text and hashlib.sha256(path.read_bytes()).hexdigest() in text"
 
       - name: Check theme registry
         run: python -c "from tools.check_project import check_themes; print(check_themes())"
