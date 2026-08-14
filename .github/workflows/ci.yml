@@ -37,8 +37,38 @@ jobs:
           python --version
           node --version
 
-      - name: Run structural project checks
-        run: python tools/check_project.py --skip-tests
+      - name: Check required project files
+        run: python -c "from tools.check_project import check_required_files; print(check_required_files())"
+
+      - name: Check version metadata
+        run: python -c "from tools.check_project import check_version; print(check_version())"
+
+      - name: Check Python syntax
+        run: python -c "from tools.check_project import check_python_syntax; print(check_python_syntax())"
+
+      - name: Check JavaScript syntax
+        run: python -c "from tools.check_project import check_javascript_syntax; print(check_javascript_syntax())"
+
+      - name: Check JavaScript module bindings
+        run: python -c "from tools.check_project import check_javascript_bindings; print(check_javascript_bindings())"
+
+      - name: Check startup scripts and plist
+        run: python -c "from tools.check_project import check_shell_and_plist; print(check_shell_and_plist())"
+
+      - name: Check development dependencies
+        run: python -c "from tools.check_project import check_dev_requirements; print(check_dev_requirements())"
+
+      - name: Check asset provenance
+        run: python -c "from tools.check_project import check_asset_provenance; print(check_asset_provenance())"
+
+      - name: Check theme registry
+        run: python -c "from tools.check_project import check_themes; print(check_themes())"
+
+      - name: Check static references and modules
+        run: python -c "from tools.check_project import check_static_references; print(check_static_references())"
+
+      - name: Check generated icons
+        run: python -c "from tools.check_project import check_generated_icons; print(check_generated_icons())"
 
       - name: Run Python tests
         run: python -m unittest discover -s tests -p "test_*.py" -q
