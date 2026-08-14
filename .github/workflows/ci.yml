@@ -127,7 +127,15 @@ jobs:
       - name: Check JavaScript bindings - widgets
         run: python -c "from pathlib import Path; from tools.check_project import javascript_exported_callables, find_unbound_shared_calls; core=Path('static/js/core.js').read_text(encoding='utf-8'); path=Path('static/js/widgets.js'); missing=find_unbound_shared_calls(path.read_text(encoding='utf-8'), javascript_exported_callables(core)); assert not missing, 'missing bindings=' + ', '.join(missing)"
 
-      - name: Check startup scripts and plist
+      - name: Check Windows launchers
+        if: runner.os == 'Windows'
+        run: python -c "from pathlib import Path; root=Path('.'); names=['start.bat','总控台.vbs']; assert all((root / name).is_file() and (root / name).stat().st_size > 0 for name in names)"
+
+      - name: Check Info.plist
+        run: python -c "from pathlib import Path; import plistlib; plistlib.loads((Path('总控台.app') / 'Contents' / 'Info.plist').read_bytes())"
+
+      - name: Check macOS startup scripts
+        if: runner.os == 'macOS'
         run: python -c "from tools.check_project import check_shell_and_plist; print(check_shell_and_plist())"
 
       - name: Check development dependencies
