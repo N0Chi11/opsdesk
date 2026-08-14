@@ -52,8 +52,35 @@ jobs:
       - name: Check version metadata
         run: python -c "from tools.check_project import check_version; print(check_version())"
 
-      - name: Check Python syntax
-        run: python -c "from tools.check_project import check_python_syntax; print(check_python_syntax())"
+      - name: Check Python syntax - server
+        run: python -c "from pathlib import Path; import ast; path=Path('server.py'); ast.parse(path.read_text(encoding='utf-8'), filename=str(path))"
+
+      - name: Check Python syntax - build release
+        run: python -c "from pathlib import Path; import ast; path=Path('tools/build_release.py'); ast.parse(path.read_text(encoding='utf-8'), filename=str(path))"
+
+      - name: Check Python syntax - project checker
+        run: python -c "from pathlib import Path; import ast; path=Path('tools/check_project.py'); ast.parse(path.read_text(encoding='utf-8'), filename=str(path))"
+
+      - name: Check Python syntax - brand assets
+        run: python -c "from pathlib import Path; import ast; path=Path('tools/gen_brand_assets.py'); ast.parse(path.read_text(encoding='utf-8'), filename=str(path))"
+
+      - name: Check Python syntax - icon generator
+        run: python -c "from pathlib import Path; import ast; path=Path('tools/gen_icons.py'); ast.parse(path.read_text(encoding='utf-8'), filename=str(path))"
+
+      - name: Check Python syntax - frontend tests
+        run: python -c "from pathlib import Path; import ast; path=Path('tests/test_frontend.py'); ast.parse(path.read_text(encoding='utf-8'), filename=str(path))"
+
+      - name: Check Python syntax - hardening tests
+        run: python -c "from pathlib import Path; import ast; path=Path('tests/test_hardening.py'); ast.parse(path.read_text(encoding='utf-8'), filename=str(path))"
+
+      - name: Check Python syntax - project checks tests
+        run: python -c "from pathlib import Path; import ast; path=Path('tests/test_project_checks.py'); ast.parse(path.read_text(encoding='utf-8'), filename=str(path))"
+
+      - name: Check Python syntax - release tests
+        run: python -c "from pathlib import Path; import ast; path=Path('tests/test_release.py'); ast.parse(path.read_text(encoding='utf-8'), filename=str(path))"
+
+      - name: Check Python syntax - server tests
+        run: python -c "from pathlib import Path; import ast; path=Path('tests/test_server.py'); ast.parse(path.read_text(encoding='utf-8'), filename=str(path))"
 
       - name: Check JavaScript syntax
         run: python -c "from tools.check_project import check_javascript_syntax; print(check_javascript_syntax())"
