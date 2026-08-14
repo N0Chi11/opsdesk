@@ -172,6 +172,7 @@ jobs:
         run: python -c "from tools.check_project import check_local_module_imports; print(check_local_module_imports())"
 
       - name: Check generated icons
+        if: runner.os == 'macOS'
         run: python -c "from tools.check_project import check_generated_icons; print(check_generated_icons())"
 
       - name: Run Python tests
