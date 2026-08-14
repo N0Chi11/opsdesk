@@ -1654,7 +1654,7 @@ DEV_KEYWORDS = (
 )
 
 
-def classify_group(key, name, comm, args, cwd, promoted):
+def classify_group(key, name, comm, args, cwd, promoted, origin=None):
     if key in promoted:
         return "mine"
     text = name.lower()
@@ -1666,7 +1666,31 @@ def classify_group(key, name, comm, args, cwd, promoted):
         return "background"
     if "/Library/Containers/" in comm or "/Library/Containers/" in (cwd or ""):
         return "background"
-    # Windows：GUI 应用（无控制台窗口句柄）无法简单识别，保持 mine
+    if IS_WINDOWS:
+        # Windows 的 comm 通常是 exe 完整路径，而 cwd 可能落在 Windows
+        # 目录；两者都要做不区分大小写的路径判断，否则 WPS/微信等 GUI
+        # 守护进程会被误列为可导入的开发服务。
+        path_values = [str(value or "").replace("/", "\\").casefold()
+                       .lstrip('"') for value in (comm, args, cwd)]
+        system_prefixes = [str(value or "").replace("/", "\\").casefold()
+                           for value in SYSTEM_PATH_PREFIXES]
+        if any(value == prefix.rstrip("\\") or value.startswith(prefix)
+               for value in path_values for prefix in system_prefixes if prefix):
+            return "background"
+        program_prefixes = []
+        for env_name in ("ProgramFiles", "ProgramFiles(x86)", "ProgramData"):
+            value = os.environ.get(env_name)
+            if value:
+                program_prefixes.append(
+                    value.replace("/", "\\").casefold().rstrip("\\") + "\\")
+        if any(value == prefix.rstrip("\\") or value.startswith(prefix)
+               for value in path_values for prefix in program_prefixes):
+            return "background"
+        # 非开发进程若明确来自资源管理器/GUI 包装层，也不应进入自动导入
+        # 候选；开发关键词已在上面优先保留为 mine。
+        if isinstance(origin, dict) and origin.get("icon") == "package":
+            return "background"
+    # Windows：无法确认来源的用户目录进程保持 mine，避免漏掉真实开发服务
     return "mine"
 
 
@@ -1870,6 +1894,7 @@ def build_services(cfg, groups=None):
         key = "%s:%d" % (name, port)
         cwd = cwds.get(pid)
         app = app_by_pid.get(pid)
+        origin = attribute_origin(pid, origin_table)
         services.append({
             "key": key,
             # key 保持 name:port 以兼容既有隐藏/置顶配置；instanceKey 用于
@@ -1879,13 +1904,14 @@ def build_services(cfg, groups=None):
             "openHost": listener_open_host(listeners, port, {pid}),
             "cwd": cwd, "project": project_name(cwd), "cmd": args,
             "cpu": info["cpu"], "mem": info["mem"], "uptimeSec": info["etime"],
-            "group": classify_group(key, name, comm, args, cwd, promoted),
+            "group": classify_group(
+                key, name, comm, args, cwd, promoted, origin),
             "pinned": key in pinned, "hidden": key in hidden,
             "promoted": key in promoted,
             "appId": app["id"] if app else None,
             "appName": app["name"] if app else None,
             # 来源溯源（尽力判断）：哪个应用/AI 助手启动了这个进程
-            "origin": attribute_origin(pid, origin_table),
+            "origin": origin,
         })
     return services, listeners
 

@@ -136,6 +136,33 @@ class OriginAttributionTests(unittest.TestCase):
         self.assertEqual(origin, {"label": "Claude Code", "icon": "bot"})
 
 
+class ServiceGroupClassificationTests(unittest.TestCase):
+    def test_development_keyword_wins_over_gui_origin(self):
+        self.assertEqual(
+            server.classify_group(
+                "node.exe:3000", "node.exe", r"C:\Program Files\nodejs\node.exe",
+                "node server.js", r"C:\Program Files\nodejs",
+                set(), {"label": "资源管理器", "icon": "package"}),
+            "mine")
+
+    def test_windows_system_and_program_files_processes_are_background(self):
+        if not server.IS_WINDOWS:
+            self.skipTest("Windows path classification only")
+        self.assertEqual(
+            server.classify_group(
+                "wpscloudsvr.exe:4709", "wpscloudsvr.exe",
+                r"C:\Users\tester\AppData\Local\Kingsoft\wpscloudsvr.exe",
+                "wpscloudsvr.exe", r"C:\Windows", set()),
+            "background")
+        self.assertEqual(
+            server.classify_group(
+                "Weixin.exe:14013", "Weixin.exe",
+                r"C:\Program Files\Tencent\Weixin\Weixin.exe",
+                r'"C:\Program Files\Tencent\Weixin\Weixin.exe"',
+                r"C:\Program Files\Tencent\Weixin", set()),
+            "background")
+
+
 class ScriptCommandTests(unittest.TestCase):
     def test_script_extensions_choose_the_expected_runtime_and_quote_paths(self):
         if server.IS_WINDOWS:
