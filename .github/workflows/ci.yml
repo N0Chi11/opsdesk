@@ -37,8 +37,14 @@ jobs:
           python --version
           node --version
 
-      - name: Run project checks
-        run: python tools/check_project.py
+      - name: Run structural project checks
+        run: python tools/check_project.py --skip-tests
+
+      - name: Run Python tests
+        run: python -m unittest discover -s tests -p "test_*.py" -q
+
+      - name: Run JavaScript tests
+        run: python -c "from pathlib import Path; import subprocess, sys; files=[str(path) for path in sorted(Path('tests/js').glob('*.test.mjs'))]; raise SystemExit(subprocess.run(['node', '--test', *files]).returncode)"
 
       - name: Build and verify release
         shell: bash
