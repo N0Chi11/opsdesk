@@ -82,8 +82,29 @@ jobs:
       - name: Check Python syntax - server tests
         run: python -c "from pathlib import Path; import ast; path=Path('tests/test_server.py'); ast.parse(path.read_text(encoding='utf-8'), filename=str(path))"
 
-      - name: Check JavaScript syntax
-        run: python -c "from tools.check_project import check_javascript_syntax; print(check_javascript_syntax())"
+      - name: Check JavaScript syntax - app
+        run: node --check static/app.js
+
+      - name: Check JavaScript syntax - icons
+        run: node --check static/icons.js
+
+      - name: Check JavaScript syntax - core
+        run: node --check static/js/core.js
+
+      - name: Check JavaScript syntax - launchpad
+        run: node --check static/js/launchpad.js
+
+      - name: Check JavaScript syntax - overlays
+        run: node --check static/js/overlays.js
+
+      - name: Check JavaScript syntax - ports
+        run: node --check static/js/ports.js
+
+      - name: Check JavaScript syntax - services
+        run: node --check static/js/services.js
+
+      - name: Check JavaScript syntax - widgets
+        run: node --check static/js/widgets.js
 
       - name: Check JavaScript module bindings
         run: python -c "from tools.check_project import check_javascript_bindings; print(check_javascript_bindings())"
