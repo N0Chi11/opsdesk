@@ -182,7 +182,19 @@ jobs:
         run: python -c "from pathlib import Path; import subprocess, sys; files=[str(path) for path in sorted(Path('tests/js').glob('*.test.mjs'))]; raise SystemExit(subprocess.run(['node', '--test', *files]).returncode)"
 
       - name: Build release archive
-        run: python tools/build_release.py --dist dist
+        shell: bash
+        run: |
+          python - <<'PY'
+          import runpy
+          import sys
+
+          sys.argv = ["tools/build_release.py", "--dist", "dist"]
+          try:
+              runpy.run_path("tools/build_release.py", run_name="__main__")
+          except SystemExit as exc:
+              if exc.code not in (None, 0):
+                  print(f"::error file=tools/build_release.py,line=1::release build failed: {exc}")
+                  raise
 
       - name: Verify release archive
         run: python tools/build_release.py --dist dist --verify-only
