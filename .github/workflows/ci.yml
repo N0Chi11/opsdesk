@@ -40,6 +40,11 @@ jobs:
       - name: Check required project files
         run: python -c "from tools.check_project import check_required_files; print(check_required_files())"
 
+      - name: Report required-file diagnostics
+        if: ${{ failure() }}
+        shell: bash
+        run: python -c 'exec("from tools.check_project import check_required_files\\ntry:\\n    check_required_files()\\nexcept Exception as exc:\\n    print(f\\"::error title=Required-file check::{exc}\\")")'
+
       - name: Check version metadata
         run: python -c "from tools.check_project import check_version; print(check_version())"
 
