@@ -21,10 +21,12 @@ const lpProjectDiscoveryList = $('#lpProjectDiscoveryList');
 const lpProjectDiscoveryCount = $('#lpProjectDiscoveryCount');
 const lpProjectDiscoveryStatus = $('#lpProjectDiscoveryStatus');
 const lpProjectDiscoveryIcon = $('#lpProjectDiscoveryIcon');
+const lpProjectRefresh = $('#lpProjectRefresh');
 const reorderStatus = $('#reorderStatus');
 let lpSvcDiscoveryBusy = false;
 const projectSuggestionCache = new Map();
 const projectSuggestionLoading = new Set();
+const projectSuggestionAdding = new Set();
 if (lpSvcDiscoveryIcon) setChildren(lpSvcDiscoveryIcon, icon('activity', 15));
 if (lpProjectDiscoveryIcon) setChildren(lpProjectDiscoveryIcon, icon('terminal', 15));
 /* ---------------- 图标取色光晕 ---------------- */
@@ -438,6 +440,15 @@ async function toggleApp(id, button) {
     return;
   }
   const starting = !app.running;
+  if (starting && !isTask && configuredPort(app)) {
+    /* 直接打开真实的同源等待页：内置浏览器可能无法操作 about:blank。 */
+    try {
+      window.open('/waiting.html?app=' + encodeURIComponent(id),
+        '_blank', 'noopener,noreferrer');
+    } catch (_) {
+      toast('无法打开等待页，服务启动后可点击卡片端口访问', 6000);
+    }
+  }
   if (button) {
     button.dataset.busy = 'true';
     button.disabled = true;
@@ -1091,8 +1102,10 @@ function projectSuggestionKey(item) {
 function projectSuggestions(apps) {
   const existing = new Set((apps || []).map(app =>
     [app.cwd || '', app.command || ''].join('|')));
+  const roots = new Set((apps || []).map(app => app.cwd).filter(Boolean));
   const result = [];
   for (const [cwd, detected] of projectSuggestionCache) {
+    if (!roots.has(cwd)) continue;
     for (const candidate of (detected.candidates || [])) {
       if (!candidate || !candidate.command) continue;
       if (existing.has([cwd, candidate.command].join('|'))) continue;
@@ -1131,12 +1144,14 @@ function updateProjectSuggestionCard(card, item) {
   setText(r.detail, truncateMiddle(candidate.command, 76));
   r.detail.title = candidate.command + (candidate.detail ? '\n' + candidate.detail : '');
   r.action.textContent = isTask ? '添加任务' : '添加服务';
-  r.action.disabled = false;
+  r.action.disabled = projectSuggestionAdding.has(projectSuggestionKey(item));
   r.action.onclick = () => addProjectSuggestion(item, r.action);
 }
 
 async function addProjectSuggestion(item, button) {
-  if (button.disabled) return;
+  const key = projectSuggestionKey(item);
+  if (projectSuggestionAdding.has(key)) return;
+  projectSuggestionAdding.add(key);
   button.disabled = true;
   const candidate = item.candidate;
   const result = await act(post('/api/apps', {
@@ -1146,11 +1161,14 @@ async function addProjectSuggestion(item, button) {
     port: candidate.kind === 'task' ? null : candidate.port,
     kind: candidate.kind === 'task' ? 'task' : 'service',
   }));
-  if (result && result.id) {
-    toast((candidate.kind === 'task' ? '任务' : '服务') + '已添加到启动台');
-    await window.__poll();
-  } else {
-    button.disabled = false;
+  try {
+    if (result && result.id) {
+      toast((candidate.kind === 'task' ? '任务' : '服务') + '已添加到启动台');
+      await window.__poll();
+    }
+  } finally {
+    projectSuggestionAdding.delete(key);
+    renderProjectSuggestions((state.data && state.data.apps) || []);
   }
 }
 
@@ -1173,14 +1191,21 @@ function renderProjectSuggestions(apps) {
   }
   const suggestions = projectSuggestions(apps);
   const loading = projectSuggestionLoading.size > 0;
-  lpProjectDiscovery.hidden = !loading && suggestions.length === 0;
+  lpProjectDiscovery.hidden = roots.length === 0;
+  if (lpProjectRefresh) lpProjectRefresh.disabled = loading;
   setText(lpProjectDiscoveryCount, String(suggestions.length));
   setText(lpProjectDiscoveryStatus, loading
     ? '正在读取已配置项目的启动脚本…'
-    : '从已配置项目自动识别服务、构建、测试和检查命令。');
+    : suggestions.length ? '从已配置项目自动识别服务、构建、测试和检查命令。'
+      : '暂无新命令。修改项目脚本后，可点击刷新重新识别。');
   reconcile(lpProjectDiscoveryList, suggestions, projectSuggestionKey,
     createProjectSuggestionCard, updateProjectSuggestionCard, true);
 }
+
+lpProjectRefresh?.addEventListener('click', () => {
+  projectSuggestionCache.clear();
+  renderProjectSuggestions((state.data && state.data.apps) || []);
+});
 
 export function renderLaunchpad(apps, firstRender) {
   if (drag || keyboardSort) return;  // 排序中轮询不打乱 DOM

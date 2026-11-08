@@ -354,6 +354,18 @@ class ProjectDetectionTests(unittest.TestCase):
         self.assertIsNone(error)
         self.assertEqual(result["candidates"][0]["port"], 4321)
 
+    def test_unrelated_or_indirect_scripts_do_not_inherit_dependency_port(self):
+        with tempfile.TemporaryDirectory() as td:
+            with open(os.path.join(td, "package.json"), "w", encoding="utf-8") as f:
+                json.dump({"scripts": {"dev": "node custom-server.js",
+                                       "docs:preview": "vite preview"},
+                           "devDependencies": {"vite": "latest"}}, f)
+            result, error = server.detect_project(td)
+        self.assertIsNone(error)
+        ports = {item["command"]: item["port"] for item in result["candidates"]}
+        self.assertIsNone(ports["npm run dev"])
+        self.assertEqual(ports["npm run docs:preview"], 4173)
+
     def test_build_suffix_is_a_task_even_when_script_name_looks_like_service(self):
         with tempfile.TemporaryDirectory() as td:
             with open(os.path.join(td, "package.json"), "w", encoding="utf-8") as f:

@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>正在启动服务 · OpsDesk</title>
+  <link rel="icon" href="/assets/favicon-32.png" type="image/png">
+  <style>
+    :root { color-scheme: light dark; font-family: system-ui, sans-serif; }
+    body { margin: 0; min-height: 100vh; display: grid; place-items: center;
+      background: #f0f4f9; color: #1a293b; }
+    main { width: min(440px, calc(100vw - 64px)); padding: 32px;
+      border: 1px solid #d9e2ef; border-radius: 20px; background: #fff;
+      box-shadow: 0 18px 55px #172c4814; }
+    .brand { color: #356fe0; font-weight: 700; font-size: 14px; }
+    h1 { margin: 20px 0 10px; font-size: 23px; }
+    p { color: #586a80; line-height: 1.7; font-size: 14px; }
+    a { display: inline-block; margin-top: 10px; color: #3069d7; }
+    @media (prefers-color-scheme: dark) {
+      body { background: #101925; color: #edf4ff; }
+      main { background: #182434; border-color: #334258; }
+      p { color: #b3c1d3; } a, .brand { color: #8bb3ff; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <div class="brand">OpsDesk</div>
+    <h1 id="title">正在启动服务</h1>
+    <p id="status" role="status">正在等待服务开始监听，准备好后会自动打开网页。</p>
+    <a href="/">返回 OpsDesk</a>
+  </main>
+  <script type="module" src="/js/waiting.js"></script>
+</body>
+</html>

@@ -984,6 +984,54 @@ class StateCacheTests(unittest.TestCase):
                 server.get_state_snapshot(cfg, 9600)
                 self.assertEqual(len(calls), 2)
 
+    def test_concurrent_config_write_and_snapshot_do_not_deadlock(self):
+        with tempfile.TemporaryDirectory() as td:
+            cfg = server.Config(os.path.join(td, "config.json"))
+            writer_has_lock = threading.Event()
+            snapshot_entered = threading.Event()
+            allow_writer = threading.Event()
+            original_snapshot = cfg.snapshot
+
+            def update(data):
+                writer_has_lock.set()
+                allow_writer.wait(3)
+                data["uiTheme"] = "custom"
+
+            def snapshot():
+                snapshot_entered.set()
+                return original_snapshot()
+
+            with mock.patch.object(cfg, "snapshot", side_effect=snapshot), \
+                 mock.patch.object(server, "build_state", side_effect=lambda c, p, h: c):
+                writer = threading.Thread(target=lambda: cfg.update(update), daemon=True)
+                writer.start()
+                self.assertTrue(writer_has_lock.wait(2))
+                reader = threading.Thread(target=lambda: server.get_state_snapshot(cfg, 9600),
+                                          daemon=True)
+                reader.start()
+                self.assertTrue(snapshot_entered.wait(2))
+                allow_writer.set()
+                writer.join(3)
+                reader.join(3)
+                self.assertFalse(writer.is_alive(), "配置写入被状态缓存锁阻塞")
+                self.assertFalse(reader.is_alive(), "状态读取被配置锁阻塞")
+
+    def test_mutation_during_build_discards_outdated_snapshot(self):
+        with tempfile.TemporaryDirectory() as td:
+            cfg = server.Config(os.path.join(td, "config.json"))
+            builds = []
+
+            def build(data, port, health):
+                builds.append(data["uiTheme"])
+                if len(builds) == 1:
+                    cfg.update(lambda current: current.__setitem__("uiTheme", "custom"))
+                return data
+
+            with mock.patch.object(server, "build_state", side_effect=build):
+                result = server.get_state_snapshot(cfg, 9600)
+            self.assertEqual(result["uiTheme"], "custom")
+            self.assertEqual(len(builds), 2)
+
 
 if __name__ == "__main__":
     unittest.main()

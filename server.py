@@ -2250,23 +2250,35 @@ def build_state(cfg, console_port, config_health=None):
 # 第二个请求直接命中缓存）。配置/进程变更时 invalidate 立即失效。
 STATE_CACHE_TTL = 2.2  # 秒
 _state_cache_lock = threading.Lock()
-_state_cache = {"mono": 0.0, "state": None}
+_state_build_lock = threading.Lock()
+_state_cache = {"mono": 0.0, "state": None, "generation": 0}
 
 
 def invalidate_state_cache():
     with _state_cache_lock:
         _state_cache["state"] = None
+        _state_cache["generation"] = _state_cache.get("generation", 0) + 1
 
 
 def get_state_snapshot(cfg, console_port):
-    now = time.monotonic()
-    with _state_cache_lock:
-        cached = _state_cache["state"]
-        if cached is not None and now - _state_cache["mono"] < STATE_CACHE_TTL:
-            return cached
-        state = build_state(cfg.snapshot(), console_port, cfg.health_info())
-        _state_cache["mono"] = time.monotonic()
-        _state_cache["state"] = state
+    # 构建可以合并并发请求，但不能持有缓存锁去获取配置锁：配置写入
+    # 时持有配置锁并清除缓存，反向加锁会导致启动与轮询永久互等。
+    with _state_build_lock:
+        for attempt in range(3):
+            with _state_cache_lock:
+                cached = _state_cache["state"]
+                if (cached is not None and
+                        time.monotonic() - _state_cache["mono"] < STATE_CACHE_TTL):
+                    return cached
+                generation = _state_cache.get("generation", 0)
+            state = build_state(cfg.snapshot(), console_port, cfg.health_info())
+            with _state_cache_lock:
+                if generation == _state_cache.get("generation", 0):
+                    _state_cache["mono"] = time.monotonic()
+                    _state_cache["state"] = state
+                    return state
+            # 采集过程中配置变化，丢弃旧快照并重新读取。
+        # 持续写入时避免阻塞请求；不缓存可能过期的快照。
         return state
 
 
@@ -2870,8 +2882,10 @@ def _port_from_command(command):
 
 
 def _package_default_port(script_name, command, dependencies):
-    """根据直接依赖和脚本内容给出开发服务器的惯用端口。"""
-    haystack = " ".join((script_name, command, " ".join(dependencies))).lower()
+    """根据脚本名称和命令内容给出开发服务器的惯用端口。"""
+    # 只有脚本直接提及框架时才猜端口。项目可能同时依赖多个框架，
+    # 或通过其他脚本/工作区间接启动，不能据此给每个命令分配同一端口。
+    haystack = " ".join((script_name, command)).lower()
     defaults = (
         (("hexo",), 4000),
         (("gatsby",), 8000),
@@ -2884,7 +2898,7 @@ def _package_default_port(script_name, command, dependencies):
         (("nuxt",), 3000),
         (("react-scripts",), 3000),
         (("vue-cli-service", "@vue/cli-service"), 8080),
-        (("vite",), 4173 if script_name == "preview" else 5173),
+        (("vite",), 4173 if re.search(r"(?:^|[:_-])preview(?:$|[:_-])", script_name) else 5173),
     )
     for needles, port in defaults:
         if any(needle in haystack for needle in needles):
